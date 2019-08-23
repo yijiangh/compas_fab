@@ -4,7 +4,7 @@ from conrob_pybullet import joints_from_names, link_from_name, set_joint_positio
 def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
                                     unit_geos, element_seq, trajectories, \
                                     ee_attachs=[],
-                                    cartesian_time_step=0.075, transition_time_step=0.1, step_sim=False):
+                                    cartesian_time_step=0.075, transition_time_step=0.1, step_sim=False, per_conf_step=False):
     # enable_gravity()
     ik_joints = joints_from_names(robot, ik_joint_names)
     end_effector_link = link_from_name(robot, ee_link_name)
@@ -19,7 +19,10 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
             for conf in unit_picknplace['place2pick']:
                 set_joint_positions(robot, ik_joints, conf)
                 for ea in ee_attachs: ea.assign()
-                wait_for_duration(transition_time_step)
+                if not per_conf_step:
+                    wait_for_duration(transition_time_step)
+                else:
+                    wait_for_user()
         else:
             print('seq #{} does not have place to pick transition plan found!'.format(seq_id))
 
@@ -27,10 +30,14 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
 
         print('seq #{} : pick approach'.format(seq_id))
         # pick_approach
+        # unit_picknplace['pick_approach'].pop(0)
         for conf in unit_picknplace['pick_approach']:
             set_joint_positions(robot, ik_joints, conf)
             for ea in ee_attachs: ea.assign()
-            wait_for_duration(cartesian_time_step)
+            if not per_conf_step:
+                wait_for_duration(cartesian_time_step)
+            else:
+                wait_for_user()
 
         if step_sim: wait_for_user()
 
@@ -46,7 +53,10 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
             set_joint_positions(robot, ik_joints, conf)
             for ea in ee_attachs: ea.assign()
             for at in attachs: at.assign()
-            wait_for_duration(cartesian_time_step)
+            if not per_conf_step:
+                wait_for_duration(cartesian_time_step)
+            else:
+                wait_for_user()
 
         if step_sim: wait_for_user()
 
@@ -57,7 +67,10 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
                 set_joint_positions(robot, ik_joints, conf)
                 for ea in ee_attachs: ea.assign()
                 for at in attachs: at.assign()
-                wait_for_duration(transition_time_step)
+                if not per_conf_step:
+                    wait_for_duration(transition_time_step)
+                else:
+                    wait_for_user()
         else:
             print('seq #{} does not have pick to place transition plan found!'.format(seq_id))
 
@@ -69,7 +82,10 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
             set_joint_positions(robot, ik_joints, conf)
             for ea in ee_attachs: ea.assign()
             for at in attachs: at.assign()
-            wait_for_duration(cartesian_time_step)
+            if not per_conf_step:
+                wait_for_duration(cartesian_time_step)
+            else:
+                wait_for_user()
 
         if step_sim: wait_for_user()
 
@@ -81,6 +97,9 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
         for conf in unit_picknplace['place_retreat']:
             set_joint_positions(robot, ik_joints, conf)
             for ea in ee_attachs: ea.assign()
-            wait_for_duration(cartesian_time_step)
+            if not per_conf_step:
+                wait_for_duration(cartesian_time_step)
+            else:
+                wait_for_user()
 
         if step_sim: wait_for_user()

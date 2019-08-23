@@ -2,6 +2,7 @@
 or a determinate mesh object
 
 """
+# TODO: this dependency is only required when getting pybullet_bodies
 from compas_fab.backends.pybullet import pb_pose_from_Frame
 
 class UnitGeometry(object):

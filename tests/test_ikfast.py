@@ -46,6 +46,7 @@ except ImportError as e:
     assert False, '\x1b[6;30;43m' + '{}, please install ikfast_pybind'.format(e) + '\x1b[0m'
 
 
+@pytest.mark.ikfast_fk
 def test_ikfast_forward_kinematics():
     """TODO: this test_function can by pybullet-free"""
     urdf_filename = compas_fab.get('universal_robot/ur_description/urdf/ur5.urdf')
@@ -87,6 +88,7 @@ def test_ikfast_forward_kinematics():
         assert_array_almost_equal(TCP_pb_pose[1], ikfast_FK_pb_pose[1])
 
 
+@pytest.mark.ikfast_ik
 def test_ikfast_inverse_kinematics():
     """TODO: this test_function can by pybullet-free"""
     VIZ = False
@@ -97,6 +99,7 @@ def test_ikfast_inverse_kinematics():
     model = RobotModel.from_urdf_file(urdf_filename)
     semantics = RobotSemantics.from_srdf_file(srdf_filename, model)
     robot = RobotClass(model, semantics=semantics)
+    print(robot.info())
 
     base_link_name = robot.get_base_link_name()
     ik_joint_names = robot.get_configurable_joint_names()
@@ -130,7 +133,7 @@ def test_ikfast_inverse_kinematics():
         # ikfast's IK
         ik_fn = ikfast_ur5.get_ik
         ik_sols = sample_tool_ik(ik_fn, pb_robot, ik_joint_names, base_link_name,
-                        ikfast_FK_pb_pose, get_all=True)
+                        ikfast_FK_pb_pose, get_all=True, filter_joint_violation=False)
 
         if has_gui():
             print('test round #{}: ik fast find {} confs'.format(i, len(ik_sols)))
@@ -141,11 +144,11 @@ def test_ikfast_inverse_kinematics():
 
         # TODO: UR robot or in general joint w/ domain over 4 pi
         # needs specialized distance function
-        q_selected = sample_tool_ik(ik_fn, pb_robot, ik_joint_names, base_link_name,
-                        ikfast_FK_pb_pose, nearby_conf=True)
+        # q_selected = sample_tool_ik(ik_fn, pb_robot, ik_joint_names, base_link_name,
+        #                 ikfast_FK_pb_pose, nearby_conf=True)
         qsol = best_sol(ik_sols, conf, [1.]*6)
-        print('q selected: {}'.format(q_selected))
-        print('q best: {}'.format(qsol))
+        # print('q selected: {}'.format(q_selected))
+        # print('q best: {}'.format(qsol))
 
         if has_gui():
             set_joint_positions(pb_robot, pb_ik_joints, qsol)

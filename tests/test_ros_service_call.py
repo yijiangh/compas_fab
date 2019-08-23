@@ -18,18 +18,20 @@ from compas_fab.backends import RosClient
 from compas_fab.robots import PlanningScene
 from compas_fab.robots import Configuration
 
+@pytest.mark.ros_srv
 def test_get_collision_objects_from_planning_scene():
     with RosClient() as client:
         assert client.is_connected
         robot = Robot(client)
 
         scene = PlanningScene(robot)
+        scene.remove_all_collision_objects()
         mesh = Mesh.from_stl(compas_fab.get('planning_scene/floor.stl'))
         cm = CollisionMesh(mesh, 'floor')
         scene.add_collision_mesh(cm)
 
         # See: https://github.com/compas-dev/compas_fab/issues/63#issuecomment-519525879
-        time.sleep(1)
+        time.sleep(0.5)
 
         co_dict = client.get_collision_meshes_and_poses()
         assert len(co_dict) == 1 and 'floor' in co_dict
@@ -44,19 +46,16 @@ def test_get_collision_objects_from_planning_scene():
         assert floor_frame == Frame.worldXY()
 
 
-# @pytest.mark.mm
+# @pytest.mark.ros_srv
 def test_single_query_motion_plan_from_ee_frame():
     with RosClient() as client:
         robot = Robot(client)
 
         frame = Frame([0.4, 0.3, 0.4], [0, 1, 0], [0, 0, 1])
         tolerance_position = 0.001
-        tolerance_axes = [np.radians(1)] * 3
+        tolerance_axes = [math.radians(1)] * 3
 
-        ur5_idle_conf = np.array([104., -80., -103., -86., 89., 194.]) / 180.0 * np.pi
-        goal_conf_val = [3.3692990008117247, 4.006257566491165, 4.70930506391325,
-                         3.8508079839547396, 3.369299000811508, 3.1415926535897873]
-        start_configuration = Configuration.from_revolute_values(goal_conf_val)
+        start_configuration = Configuration.from_revolute_values([-0.042, 4.295, 0, -3.327, 4.755, 0.])
         group = robot.main_group_name
 
         # create goal constraints from frame
@@ -70,11 +69,12 @@ def test_single_query_motion_plan_from_ee_frame():
                                        group,
                                        planner_id='RRT')
 
-        print("Motion plan from frame: computed kinematic path with %d configurations." % len(trajectory.points))
+        print("Computed kinematic path with %d configurations." % len(trajectory.points))
         print("Executing this path at full speed would take approx. %.3f seconds." % trajectory.time_from_start)
 
 
-@pytest.mark.mmm
+
+@pytest.mark.ros_srv
 def test_single_query_motion_plan_from_joint_conf():
     with RosClient() as client:
         robot = Robot(client)
@@ -85,18 +85,26 @@ def test_single_query_motion_plan_from_joint_conf():
         scene.remove_all_collision_objects()
         print('existing collision objs: {}'.format(scene.get_collision_meshes_and_poses()))
 
-        current_jt_state = scene.get_joint_state()
+        current_jt_val = scene.get_joint_state().values()
+        print(current_jt_val)
         # or current_jt_state = client.get_joint_state()
-        ur5_idle_conf = np.array([104., -80., -103., -86., 89., 194.]) / 180.0 * np.pi
+        ur5_idle_conf = [1.8151424220741026, -1.3962634015954636, -1.7976891295541593,
+                        -1.5009831567151235, 1.5533430342749532, 3.385938748868999]
 
         # valid st and goal conf
-        # st_conf = Configuration.from_revolute_values(current_jt_state.values())
-        # goal_conf = Configuration.from_revolute_values(list(ur5_idle_conf))
+        # st_conf_val = current_jt_val
+        # goal_conf_val = ur5_idle_conf
 
         # valid st, but 'out of range' goal conf
-        goal_conf_val = [3.3692990008117247, 4.006257566491165, 4.70930506391325,
-                         3.8508079839547396, 3.369299000811508, 3.0415926535897873]
-        st_conf = Configuration.from_revolute_values(ur5_idle_conf)
+        st_conf_val = ur5_idle_conf
+
+        # this conf has out-of-limit (-pi ~ pi) `elbow_joint` value
+        invalid_goal_conf_val = [3.3692990008117247, 4.006257566491165, 4.70930506391325,
+                                 3.8508079839547396, 3.369299000811508, 3.0415926535897873]
+        goal_conf_val = [6.134712063782542, 5.418520394278199, 1.573880243266336,
+                         5.573969976814626, 6.134712063782833, 3.1415926535897922]
+
+        st_conf = Configuration.from_revolute_values(st_conf_val)
         goal_conf = Configuration.from_revolute_values(goal_conf_val)
 
         print('is_valid? st_conf : {}'.format(
@@ -113,7 +121,8 @@ def test_single_query_motion_plan_from_joint_conf():
         print("Executing this path at full speed would take approx. %.3f seconds." % traj.time_from_start)
 
 
-def test_is_joint_state_valid():
+@pytest.mark.ros_srv
+def test_is_joint_state_colliding():
     with RosClient() as client:
         robot = Robot(client)
         group = robot.main_group_name
@@ -123,32 +132,35 @@ def test_is_joint_state_valid():
                        -1.5009831567151235, 1.5533430342749532, 3.385938748868999]
         self_collision_conf_val = [0.05092512883900069, 4.407050465744106, 3.4727222613517697,
                                    1.4450052336734978, 4.661463851545683, 0.0]
-        choreo_example_sol = [3.3692990008117247, 4.006257566491165, 4.70930506391325,
-                              3.8508079839547396, 3.369299000811508, 3.1415926535897873]
 
-        assert client.is_joint_state_colliding(group, joint_names, idle_conf_val)
+        # is_joint_state_colliding is not checking joint limits, so this one will pass
+        # although the `elbow_joint` is over-limit
+        violate_joint_limit = [3.3692990008117247, 4.006257566491165, 4.70930506391325,
+                               3.8508079839547396, 3.369299000811508, 3.0415926535897873]
 
-        client.set_joint_positions(group, joint_names, self_collision_conf_val)
-        time.sleep(1)
-        assert not client.is_joint_state_colliding(group, joint_names, self_collision_conf_val)
+        choreo_example_sol = [6.134712063782542, 5.418520394278199, 1.573880243266336,
+                         5.573969976814626, 6.134712063782833, 3.1415926535897922]
 
-        client.set_joint_positions(group, joint_names, choreo_example_sol)
-        time.sleep(1)
-        print('is_valid? {}'.format(client.is_joint_state_colliding(group, joint_names, choreo_example_sol)))
+        assert not client.is_joint_state_colliding(group, joint_names, idle_conf_val)
+        assert client.is_joint_state_colliding(group, joint_names, self_collision_conf_val)
+        assert not client.is_joint_state_colliding(group, joint_names, violate_joint_limit)
+        assert not client.is_joint_state_colliding(group, joint_names, choreo_example_sol)
 
 
-@pytest.mark.mm
+@pytest.mark.ros_srv
+@pytest.mark.js
 def test_set_and_get_joint_state():
     with RosClient() as client:
         robot = Robot(client)
         group = robot.main_group_name
         joint_names = robot.get_configurable_joint_names()
 
-        given_sol = [3.3692990008117247, 4.006257566491165, 4.70930506391325,
-                    3.8508079839547396, 3.369299000811508, 3.1415926535897873]
+        # the following conf has `elbow_joint` (2) out of limit
+        # given_sol = [3.3692990008117247, 4.006257566491165, 4.70930506391325,
+        #              3.8508079839547396, 3.369299000811508, 3.0415926535897873]
+        # given_sol = [0] * 6
+        given_sol = [6.134712063782542, 5.418520394278199, 1.573880243266336, 5.573969976814626, 6.134712063782833, 3.1415926535897922]
 
         client.set_joint_positions(group, joint_names, given_sol)
-
         current_jt_val = client.get_joint_state().values()
-
         assert_equal(given_sol, list(current_jt_val))

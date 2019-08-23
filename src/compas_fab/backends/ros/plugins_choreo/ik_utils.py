@@ -95,7 +95,7 @@ def get_ik_generator(ik_fn, robot, base_link_name, world_from_tcp, ik_tool_link_
 
 def sample_tool_ik(ik_fn, robot, ik_joint_names, base_link_name, world_from_tcp,
                    add_2pi_sols=False, ik_tool_link_from_tcp=None,
-                   get_all=False, **kwargs):
+                   get_all=False, filter_joint_violation=True, **kwargs):
     """ sample ik joints for a given tcp pose in the world frame
 
     Parameters
@@ -130,22 +130,8 @@ def sample_tool_ik(ik_fn, robot, ik_joint_names, base_link_name, world_from_tcp,
     ik_joints = joints_from_names(robot, ik_joint_names)
     generator = get_ik_generator(ik_fn, robot, base_link_name, world_from_tcp, ik_tool_link_from_tcp)
     sols = next(generator)
-
-    # if add_2pi_sols:
-    #     extra_sol_addup = []
-    #     for test_sol in sols:
-    #         print('---')
-    #         # for each sol, we add each combination of +- 2pi
-    #         add_ups = [[0] for _ in range(6)]
-    #         for i in range(6):
-    #             for add_ang in [-2.*np.pi, 2.*np.pi]:
-    #                 if not violates_limit(robot, ik_joints[i], test_sol[i] + add_ang):
-    #                     add_ups[i].append(add_ang)
-    #         extra_sol_addup.append(add_ups)
-    #         print(extra_sol_addup)
-    #     sols = extra_sols
-
-    sols = list(filter(lambda conf: not violates_limits(robot, ik_joints, conf), sols))
+    if filter_joint_violation:
+        sols = list(filter(lambda conf: not violates_limits(robot, ik_joints, conf), sols))
     return sols if get_all else select_solution(robot, ik_joints, sols, **kwargs)
 
 
@@ -247,7 +233,7 @@ def best_sol(sols, q_guess, weights):
 
     ported from https://github.com/ros-industrial/universal_robot/blob/kinetic-devel/ur_kinematics/src/ur_kinematics/test_analytical_ik.py
 
-    Specific for UR setup (4 pi domain ranges)
+    Specific for UR setup (4 pi domain ranges except for the elbow_joint)
     """
     import numpy as np
     valid_sols = []
@@ -256,10 +242,14 @@ def best_sol(sols, q_guess, weights):
         for i in range(6):
             for add_ang in [-2.*np.pi, 0, 2.*np.pi]:
                 test_ang = sol[i] + add_ang
-                if (abs(test_ang) <= 2.*np.pi and
-                    # snap solution to the one that's closer to q_guess
-                    abs(test_ang - q_guess[i]) < abs(test_sol[i] - q_guess[i])):
-                    test_sol[i] = test_ang
+                if i != 2:
+                    if (abs(test_ang) <= 2.*np.pi and
+                        abs(test_ang - q_guess[i]) < abs(test_sol[i] - q_guess[i])):
+                        test_sol[i] = test_ang
+                else:
+                    if (abs(test_ang) <= np.pi and
+                        abs(test_ang - q_guess[i]) < abs(test_sol[i] - q_guess[i])):
+                        test_sol[i] = test_ang
         if np.all(test_sol != 9999.):
             valid_sols.append(test_sol)
     if len(valid_sols) == 0:

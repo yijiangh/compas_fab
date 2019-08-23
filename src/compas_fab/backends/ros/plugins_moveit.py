@@ -342,7 +342,7 @@ class MoveItPlanner(PlannerPlugin):
 
     def is_joint_state_colliding(self, group_name, joint_names, joint_state):
         reponse_msg = self.get_state_validity(group_name, joint_names, joint_state, Constraints())
-        return reponse_msg['valid']
+        return not reponse_msg['valid']
 
     def get_state_validity(self, group_name, joint_names, joint_state, constraints):
         """Check if if state is valid.
