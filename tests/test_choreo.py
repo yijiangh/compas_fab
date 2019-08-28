@@ -1,6 +1,8 @@
 from __future__ import print_function
 import os
 import time
+import json
+from collections import OrderedDict
 import pytest
 
 import math
@@ -21,6 +23,8 @@ from compas_fab.robots import PlanningScene
 from compas_fab.robots import CollisionMesh, AttachedCollisionMesh
 from compas_fab.robots.ur5 import Robot
 from compas_fab.robots.configuration import Configuration
+from compas_fab.robots.time_ import Duration
+from compas_fab.robots import JointTrajectoryPoint, JointTrajectory
 
 from compas_fab.backends.pybullet import attach_end_effector_geometry, \
 convert_mesh_to_pybullet_body, get_TCP_pose, create_pb_robot_from_ros_urdf, \
@@ -57,13 +61,16 @@ def test_convex_decomp():
 def test_choreo_plan_single_cartesian_motion():
     VIZ = True # True to see detailed IKfast solutions
     VIZ_IKFAST = False
-    TRANSITION_JT_RESOLUTION = 0.005
-    plan_transition = False
+    TRANSITION_JT_RESOLUTION = 0.01
+    plan_transition = True
+    use_moveit_planner = False
+    # result_save_path = 'C:/Users/harry/Documents/choreo_result/choreo_result.json'
+    result_save_path = None
 
     # sim settings
     CART_TIME_STEP = 0.1 # 0.075
     TRANSITION_TIME_STEP = 0.005
-    PER_CONF_STEP = True
+    PER_CONF_STEP = False
 
     # transition motion planner settings
     RRT_RESTARTS = 5
@@ -115,7 +122,8 @@ def test_choreo_plan_single_cartesian_motion():
         tcp_tf = Translation([0.099, 0, 0]) # in meters
         # ur5_start_conf = [3.1415, -1.3962634015954636, -1.7976891295541593,
         #                   -1.5009831567151235, 1.5533430342749532, 3.385938748868999]
-        ur5_start_conf = [0,-1.65715,1.71108,-1.62348,-1.55893,2.75828]
+        ur5_start_conf = [0,-1.65715,1.71108,-1.62348,0,0]
+
         client.set_joint_positions(group, ik_joint_names, ur5_start_conf)
 
         # add static collision obstacles
@@ -181,17 +189,19 @@ def test_choreo_plan_single_cartesian_motion():
             for h in handles:
                 remove_debug(h)
 
+        saved_world = WorldSaver()
+
         ik_fn = ikfast_ur5.get_ik
         tot_traj, graph_sizes = \
         direct_ladder_graph_solve_picknplace(pb_robot, ik_joint_names, base_link_name, ee_link_name, ik_fn,
             unit_geos, element_seq, static_obstacles_from_name,
             tcp_transf=pb_pose_from_Transformation(tcp_tf),
             ee_attachs=ee_attachs,
-            max_attempts=100, viz=VIZ_IKFAST)
+            max_attempts=100, viz=VIZ_IKFAST, st_conf=ur5_start_conf)
 
-        print(tot_traj[0:5])
         picknplace_cart_plans = divide_nested_list_chunks(tot_traj, graph_sizes)
-        # print(picknplace_cart_plans)
+
+        saved_world.restore()
         print('Cartesian planning finished.')
 
         # reset robot and parts for better visualization
@@ -201,8 +211,8 @@ def test_choreo_plan_single_cartesian_motion():
             for e_body in unit_geos[e_id].pybullet_bodies:
                 set_pose(e_body, unit_geos[e_id].initial_pb_pose)
 
-        if has_gui():
-            wait_for_user()
+        # if has_gui():
+        #     wait_for_user()
 
         def flatten_unit_geos_bodies(in_dict):
             out_list = []
@@ -214,7 +224,7 @@ def test_choreo_plan_single_cartesian_motion():
             print('Transition planning started.')
 
             for seq_id, unit_picknplace in enumerate(picknplace_cart_plans):
-                print('transition seq#{}'.format(seq_id))
+                print('----\ntransition seq#{}'.format(seq_id))
                 e_id = element_seq[seq_id]
 
                 if seq_id != 0:
@@ -228,104 +238,142 @@ def test_choreo_plan_single_cartesian_motion():
                 # assert not client.is_joint_state_colliding(group, ik_joint_names, place2pick_st_conf)
                 # assert not client.is_joint_state_colliding(group, ik_joint_names, place2pick_goal_conf)
 
-                st_conf = Configuration.from_revolute_values(place2pick_st_conf)
-                goal_conf = Configuration.from_revolute_values(place2pick_goal_conf)
-                goal_constraints = robot.constraints_from_configuration(goal_conf, [math.radians(1)]*6, group)
-                place2pick_path = robot.plan_motion(goal_constraints, st_conf, group, planner_id='RRTConnect')
+                if use_moveit_planner:
+                    # TODO: add collision objects
 
-                ########################################################
-                # place to pick pybullet motion planning call (temporal)
-                ########################################################
+                    st_conf = Configuration.from_revolute_values(place2pick_st_conf)
+                    goal_conf = Configuration.from_revolute_values(place2pick_goal_conf)
+                    goal_constraints = robot.constraints_from_configuration(goal_conf, [math.radians(1)]*6, group)
+                    place2pick_jt_traj = robot.plan_motion(goal_constraints, st_conf, group, planner_id='RRTConnect')
+                    place2pick_path = [jt_pt['values'] for jt_pt in place2pick_jt_traj.to_data()['points']]
 
-                # set_joint_positions(pb_robot, pb_ik_joints, place2pick_st_conf)
+                else:
+                    saved_world = WorldSaver()
 
-                # cur_mo_list = []
-                # for mo_id, mo in unit_geos.items():
-                #     if mo_id in element_seq.values():
-                #         cur_mo_list.extend(mo.pybullet_bodies)
+                    set_joint_positions(pb_robot, pb_ik_joints, place2pick_st_conf)
+                    for ee_a in ee_attachs: ee_a.assign()
 
-                # place2pick_path = plan_joint_motion(pb_robot, pb_ik_joints,
-                #                     place2pick_goal_conf,
-                #                     attachments=ee_attachs,
-                #                     obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos),
-                #                     self_collisions=True,
-                #                     resolutions=[TRANSITION_JT_RESOLUTION]*len(pb_ik_joints),
-                #                     restarts=RRT_RESTARTS, iterations=RRT_ITERATIONS,)
+                    place2pick_path = plan_joint_motion(pb_robot, pb_ik_joints,
+                                        place2pick_goal_conf,
+                                        attachments=ee_attachs,
+                                        obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos),
+                                        self_collisions=True,
+                                        resolutions=[TRANSITION_JT_RESOLUTION]*len(pb_ik_joints),
+                                        restarts=RRT_RESTARTS, iterations=RRT_ITERATIONS,)
+                    saved_world.restore()
 
-                # if not place2pick_path:
-                #     saved_world = WorldSaver()
+                    if not place2pick_path:
+                        saved_world = WorldSaver()
 
-                #     print('seq #{} cannot find place2pick transition'.format(seq_id))
-                #     print('Diagnosis...')
+                        print('****\nseq #{} cannot find place2pick transition'.format(seq_id))
+                        print('Diagnosis...')
 
-                #     cfn = get_collision_fn_diagnosis(pb_robot, pb_ik_joints, \
-                #         obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos),
-                #         attachments=ee_attachs, self_collisions=True)
+                        cfn = get_collision_fn_diagnosis(pb_robot, pb_ik_joints, \
+                            obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos),
+                            attachments=ee_attachs, self_collisions=True)
 
-                #     print('start pose:')
-                #     cfn(place2pick_st_conf)
+                        print('start pose:')
+                        cfn(place2pick_st_conf)
 
-                #     end_conf = picknplace_cart_plans[seq_id]['pick_approach'][0]
-                #     print('end pose:')
-                #     cfn(place2pick_goal_conf)
+                        print('end pose:')
+                        cfn(place2pick_goal_conf)
 
-                #     saved_world.restore()
-
+                        saved_world.restore()
+                        print('Diagnosis over')
 
                 pick2place_st_conf = picknplace_cart_plans[seq_id]['pick_retreat'][-1]
                 pick2place_goal_conf = picknplace_cart_plans[seq_id]['place_approach'][0]
 
-                st_conf = Configuration.from_revolute_values(picknplace_cart_plans[seq_id]['pick_retreat'][-1])
-                goal_conf = Configuration.from_revolute_values(picknplace_cart_plans[seq_id]['place_approach'][0])
-                goal_constraints = robot.constraints_from_configuration(goal_conf, [math.radians(1)]*6, group)
-                pick2place_path = robot.plan_motion(goal_constraints, st_conf, group, planner_id='RRTConnect')
+                if use_moveit_planner:
+                    st_conf = Configuration.from_revolute_values(picknplace_cart_plans[seq_id]['pick_retreat'][-1])
+                    goal_conf = Configuration.from_revolute_values(picknplace_cart_plans[seq_id]['place_approach'][0])
+                    goal_constraints = robot.constraints_from_configuration(goal_conf, [math.radians(1)]*6, group)
+                    pick2place_jt_traj = robot.plan_motion(goal_constraints, st_conf, group, planner_id='RRTConnect')
+                    pick2place_path = [jt_pt['values'] for jt_pt in pick2place_jt_traj.to_data()['points']]
+                else:
+                    saved_world = WorldSaver()
 
-                ########################################################
-                # pick to place pybullet motion planning call (temporal)
-                ########################################################
+                    # create attachement without needing to keep track of grasp...
+                    set_joint_positions(pb_robot, pb_ik_joints, picknplace_cart_plans[seq_id]['pick_retreat'][0])
+                    # attachs = [Attachment(robot, tool_link, invert(grasp.attach), e_body) for e_body in brick.body]
+                    element_attachs = [create_attachment(pb_robot, pb_end_effector_link, e_body) \
+                        for e_body in unit_geos[e_id].pybullet_bodies]
 
-                # # create attachement without needing to keep track of grasp...
-                # set_joint_positions(pb_robot, pb_ik_joints, picknplace_cart_plans[seq_id]['pick_retreat'][0])
-                # # attachs = [Attachment(robot, tool_link, invert(grasp.attach), e_body) for e_body in brick.body]
-                # element_attachs = [create_attachment(pb_robot, pb_end_effector_link, e_body) \
-                #     for e_body in unit_geos[e_id].pybullet_bodies]
+                    set_joint_positions(pb_robot, pb_ik_joints, pick2place_st_conf)
+                    for ee_a in ee_attachs: ee_a.assign()
+                    for e_a in element_attachs: e_a.assign()
 
-                # # cur_mo_list = []
-                # # for mo_id, mo in unit_geos.items():
-                # #     if mo_id != e_id and mo_id in element_seq.values():
-                # #         cur_mo_list.extend(mo.pybullet_bodies)
+                    pick2place_path = plan_joint_motion(pb_robot, pb_ik_joints, pick2place_goal_conf,
+                        obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos),
+                        attachments=ee_attachs + element_attachs, self_collisions=True,
+                        resolutions=[TRANSITION_JT_RESOLUTION]*len(pb_ik_joints),
+                        restarts=RRT_RESTARTS, iterations=RRT_ITERATIONS,)
 
-                # set_joint_positions(pb_robot, pb_ik_joints, pick2place_st_conf)
-                # pick2place_path = plan_joint_motion(pb_robot, pb_ik_joints, pick2place_goal_conf,
-                #     obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos),
-                #     attachments=ee_attachs + element_attachs, self_collisions=True,
-                #     resolutions=[TRANSITION_JT_RESOLUTION]*len(pb_ik_joints),
-                #     restarts=RRT_RESTARTS, iterations=RRT_ITERATIONS,)
+                    saved_world.restore()
 
-                # if not pick2place_path:
-                #     saved_world = WorldSaver()
-                #     print('seq #{} cannot find pick2place transition'.format(seq_id))
-                #     print('Diagnosis...')
+                    if not pick2place_path:
+                        saved_world = WorldSaver()
 
-                #     cfn = get_collision_fn_diagnosis(pb_robot, pb_ik_joints,
-                #         obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos), \
-                #         attachments=ee_attachs + element_attachs, self_collisions=True)
+                        print('****\nseq #{} cannot find pick2place transition'.format(seq_id))
+                        print('Diagnosis...')
 
-                #     print('start pose:')
-                #     cfn(pick2place_st_conf)
-                #     saved_world.restore()
+                        cfn = get_collision_fn_diagnosis(pb_robot, pb_ik_joints,
+                            obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos), \
+                            attachments=ee_attachs + element_attachs, self_collisions=True)
 
-                #     end_conf = picknplace_cart_plans[seq_id]['place_approach'][0]
-                #     print('end pose:')
-                #     cfn(pick2place_goal_conf)
+                        print('start pose:')
+                        cfn(pick2place_st_conf)
+
+                        print('end pose:')
+                        cfn(pick2place_goal_conf)
+
+                        saved_world.restore()
+
+                        print('Diagnosis over')
 
                 picknplace_cart_plans[seq_id]['place2pick'] = place2pick_path
                 picknplace_cart_plans[seq_id]['pick2place'] = pick2place_path
 
-                for e_body in unit_geo.pybullet_bodies:
-                    set_pose(e_body, unit_geo.goal_pb_pose)
+                for e_body in unit_geos[e_id].pybullet_bodies:
+                    set_pose(e_body, unit_geos[e_id].goal_pb_pose)
+
+                if seq_id == len(picknplace_cart_plans)-1:
+                    saved_world = WorldSaver()
+
+                    set_joint_positions(pb_robot, pb_ik_joints, picknplace_cart_plans[seq_id]['place_retreat'][-1])
+                    for ee_a in ee_attachs: ee_a.assign()
+
+                    return2idle_path = plan_joint_motion(pb_robot, pb_ik_joints, ur5_start_conf,
+                        obstacles=list(static_obstacles_from_name.values()) + flatten_unit_geos_bodies(unit_geos),
+                        attachments=ee_attachs, self_collisions=True,
+                        resolutions=[TRANSITION_JT_RESOLUTION]*len(pb_ik_joints),
+                        restarts=RRT_RESTARTS, iterations=RRT_ITERATIONS,)
+
+                    saved_world.restore()
+                    picknplace_cart_plans[seq_id]['return2idle'] = return2idle_path
+
 
             print('Transition planning finished.')
+
+        if result_save_path:
+            # convert to ros JointTrajectory
+            traj_json_data = []
+            traj_time_count = 0.0
+            for i, element_process in enumerate(picknplace_cart_plans):
+                e_proc_data = {}
+                for sub_proc_name, sub_process in element_process.items():
+                    sub_process_jt_traj_list =[]
+                    for jt_sol in sub_process:
+                        sub_process_jt_traj_list.append(
+                            JointTrajectoryPoint(values=jt_sol, types=[0] * 6, time_from_start=Duration(traj_time_count, 0)))
+                        traj_time_count += 1.0 # meaningless timestamp
+                    e_proc_data[sub_proc_name] = JointTrajectory(trajectory_points=sub_process_jt_traj_list,
+                                                                 start_configuration=sub_process_jt_traj_list[0]).to_data()
+                traj_json_data.append(e_proc_data)
+
+            with open(result_save_path, 'w+') as outfile:
+                json.dump(traj_json_data, outfile, indent=4)
+                print('planned trajectories saved to {}'.format(result_save_path))
 
         print('\n*************************\nplanning completed. Simulate?')
         if has_gui():
