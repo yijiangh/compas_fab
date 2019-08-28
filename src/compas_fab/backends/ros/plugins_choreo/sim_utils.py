@@ -103,3 +103,12 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
                 wait_for_user()
 
         if step_sim: wait_for_user()
+
+        if seq_id == len(trajectories)-1 and 'return2idle' in unit_picknplace:
+            for conf in unit_picknplace['return2idle']:
+                set_joint_positions(robot, ik_joints, conf)
+                for ea in ee_attachs: ea.assign()
+                if not per_conf_step:
+                    wait_for_duration(transition_time_step)
+                else:
+                    wait_for_user()

@@ -38,7 +38,7 @@ from conrob_pybullet import load_pybullet, connect, disconnect, wait_for_user, \
 from conrob_pybullet import Pose, Point, BodyPose, GraspInfo
 
 
-@pytest.mark.sc
+@pytest.mark.pybullet_robot_conversion
 def test_convert_compas_robot_to_pybullet_robot():
     VIZ = True
     # get ur robot model from local test data that's shipped with compas_fab
@@ -77,27 +77,24 @@ def test_convert_compas_robot_to_pybullet_robot():
     ee_bodies = attach_end_effector_geometry([ee_mesh], pb_robot, ee_link_name)
 
     # idle conf
-    ur5_start_conf = np.array([104., -80., -103., -86., 89., 194.]) / 180.0 * np.pi
-
+    # ur5_start_conf = np.array([104., -80., -103., -86., 89., 194.]) / 180.0 * np.pi
+    ur5_start_conf = [0,-1.65715,1.71108,-1.62348,0,0]
     self_collision_conf_val = [0.05092512883900069, 4.407050465744106, 3.4727222613517697,
                                 1.4450052336734978, 4.661463851545683, 0.0]
 
-    choreo_example_sol = [3.3692990008117247, 4.006257566491165, 4.70930506391325,
-                          3.8508079839547396, 3.369299000811508, 3.1415926535897873]
-
     ik_joint_names = robot.get_configurable_joint_names()
     pb_ik_joints = joints_from_names(pb_robot, ik_joint_names)
-    # set_joint_positions(pb_robot, pb_ik_joints, ur5_start_conf)
-    set_joint_positions(pb_robot, pb_ik_joints, choreo_example_sol)
-    # for ee_b in ee_bodies: ee_b.assign()
+    set_joint_positions(pb_robot, pb_ik_joints, ur5_start_conf)
+    # set_joint_positions(pb_robot, pb_ik_joints, choreo_example_sol)
+    for ee_b in ee_bodies: ee_b.assign()
 
     pb_obstacles = []
     pb_attachments = []
-    pb_disabled_collisions = get_pb_robot_disabled_self_collisions(pb_robot, disabled_collisions)
-    collision_fn = get_collision_fn(pb_robot, pb_ik_joints, pb_obstacles,
-                        pb_attachments, True, pb_disabled_collisions,
-                        custom_limits={})
-    print('is colliding? {}'.format(collision_fn(choreo_example_sol)))
+    # pb_disabled_collisions = get_pb_robot_disabled_self_collisions(pb_robot, disabled_collisions)
+    # collision_fn = get_collision_fn(pb_robot, pb_ik_joints, pb_obstacles,
+    #                     pb_attachments, True, pb_disabled_collisions,
+    #                     custom_limits={})
+    # print('is colliding? {}'.format(collision_fn(choreo_example_sol)))
 
     # draw TCP frame in pybullet
     TCP_pb_pose = get_TCP_pose(pb_robot, ee_link_name, tcp_tf, return_pb_pose=True)

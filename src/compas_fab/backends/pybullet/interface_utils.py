@@ -18,7 +18,7 @@ from conrob_pybullet import create_obj, set_pose, quat_from_matrix, add_body_nam
     quat_from_euler, link_from_name, get_link_pose, add_fixed_constraint, euler_from_quat, \
     multiply, is_connected, load_pybullet, joints_from_names, set_joint_positions, \
     get_constraint_info, create_attachment, get_pose, pairwise_collision, set_color, \
-    wait_for_user, has_link
+    wait_for_user, has_link, WorldSaver
 
 # TODO: this will be added later
 # __all__ = [
@@ -330,6 +330,7 @@ def create_pb_robot_from_ros_urdf(urdf_path, pkg_name, planning_scene=None, ee_l
         return pb_robot
 
 def sanity_check_collisions(brick_from_index, obstacle_from_name):
+    saved_world = WorldSaver()
     in_collision = False
     init_pose = None
     for brick in brick_from_index.values():
@@ -356,6 +357,8 @@ def sanity_check_collisions(brick_from_index, obstacle_from_name):
     for brick in brick_from_index.values():
         for e_body in brick.pybullet_bodies:
             set_pose(e_body, init_pose)
+
+    saved_world.restore()
     return in_collision
 
 def get_pb_robot_disabled_self_collisions(pb_robot, disabled_collision_names):

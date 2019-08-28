@@ -21,11 +21,11 @@ class FollowJointTrajectoryGoal(ROSmsg):
     """http://docs.ros.org/fuerte/api/control_msgs/html/msg/FollowJointTrajectoryGoal.html
     """
 
-    def __init__(self, trajectory=None, path_tolerance=None, 
+    def __init__(self, trajectory=None, path_tolerance=None,
                  goal_tolerance=None, goal_time_tolerance=None):
-        self.trajectory = trajectory if trajectory else JointTrajectory() #trajectory_msgs/JointTrajectory 
-        self.path_tolerance = path_tolerance if path_tolerance else []#control_msgs/JointTolerance[] 
-        self.goal_tolerance = goal_tolerance if goal_tolerance else [] #control_msgs/JointTolerance[] 
+        self.trajectory = trajectory if trajectory else JointTrajectory() #trajectory_msgs/JointTrajectory
+        self.path_tolerance = path_tolerance if path_tolerance else []#control_msgs/JointTolerance[]
+        self.goal_tolerance = goal_tolerance if goal_tolerance else [] #control_msgs/JointTolerance[]
         self.goal_time_tolerance = goal_time_tolerance if goal_time_tolerance else Time(secs=1.)
 
 
@@ -74,7 +74,7 @@ class FollowJointTrajectoryResult(ROSmsg):
     def __init__(self, error_code=0, error_string=""):
         self.error_code = error_code
         self.error_string = error_string
-    
+
     @classmethod
     def from_msg(cls, msg):
         error_code = msg['error_code']
@@ -96,7 +96,7 @@ class FollowJointTrajectoryActionResult(ROSmsg):
         self.header = header if header else Header()
         self.status = status if status else GoalStatus()
         self.result = result if result else FollowJointTrajectoryResult()
-    
+
     @classmethod
     def from_msg(cls, msg):
         header = Header.from_msg(msg['header'])
