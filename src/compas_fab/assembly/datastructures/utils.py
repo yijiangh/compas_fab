@@ -21,7 +21,11 @@ def virtual_joint_key(id):
     return VIRTUAL_JOINT_KEY_PREFIX + KEY_SEPARATOR + str(id)
 
 def extract_virtual_joint_vert_id(str_key):
-    return None
+    key_sep = str_key.split(KEY_SEPARATOR)
+    if key_sep[0] == VIRTUAL_JOINT_KEY_PREFIX:
+        return int(key_sep[1])
+    else:
+        return None
 
 def obj_name(obj_key, sub_mesh_id):
     return obj_key + '_' + str(sub_mesh_id) + '.obj'

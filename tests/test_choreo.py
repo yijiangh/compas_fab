@@ -120,8 +120,6 @@ def test_choreo_plan_single_cartesian_motion():
 
         # define TCP transformation
         tcp_tf = Translation([0.099, 0, 0]) # in meters
-        # ur5_start_conf = [3.1415, -1.3962634015954636, -1.7976891295541593,
-        #                   -1.5009831567151235, 1.5533430342749532, 3.385938748868999]
         ur5_start_conf = [0,-1.65715,1.71108,-1.62348,0,0]
 
         client.set_joint_positions(group, ik_joint_names, ur5_start_conf)
@@ -135,6 +133,8 @@ def test_choreo_plan_single_cartesian_motion():
         # See: https://github.com/compas-dev/compas_fab/issues/63#issuecomment-519525879
         time.sleep(1)
 
+        # ======================================================
+        # ======================================================
         # start pybullet environment & load pybullet robot
         connect(use_gui=VIZ)
         pb_robot = create_pb_robot_from_ros_urdf(urdf_filename, urdf_pkg_name,

@@ -3,7 +3,6 @@ or a determinate mesh object
 
 """
 # TODO: this dependency is only required when getting pybullet_bodies
-from compas_fab.backends.pybullet import pb_pose_from_Frame
 
 class UnitGeometry(object):
     def __init__(self, name, mesh=None, body=None,
@@ -43,6 +42,8 @@ class UnitGeometry(object):
 
     @property
     def grasps(self):
+        """obj_from_grasp_poses
+        """
         return self._grasps
 
     @grasps.setter
@@ -51,6 +52,8 @@ class UnitGeometry(object):
 
     @property
     def initial_frame(self):
+        """world_from_element_pick_pose
+        """
         return self._initial_frame
 
     @initial_frame.setter
@@ -59,10 +62,16 @@ class UnitGeometry(object):
 
     @property
     def initial_pb_pose(self):
-        return pb_pose_from_Frame(self._initial_frame)
+        try:
+            from compas_fab.backends.pybullet import pb_pose_from_Frame
+            return pb_pose_from_Frame(self._initial_frame)
+        except ImportError:
+            return None
 
     @property
     def goal_frame(self):
+        """world_from_element_place pose
+        """
         # TODO: if no body is stored, create from compas mesh
         return self._goal_frame
 
@@ -72,7 +81,35 @@ class UnitGeometry(object):
 
     @property
     def goal_pb_pose(self):
-        return pb_pose_from_Frame(self._goal_frame)
+        try:
+            from compas_fab.backends.pybullet import pb_pose_from_Frame
+            return pb_pose_from_Frame(self._goal_frame)
+        except ImportError:
+            return None
+
+    # @property
+    # def world_from_element_place_pose(self):
+    #     return self._world_from_element_place_pose
+
+    # @world_from_element_place_pose.setter
+    # def world_from_element_place_pose(self, pose):
+    #     self._world_from_element_place_pose = pose
+
+    # @property
+    # def world_from_element_pick_pose(self):
+    #     return self._world_from_element_pick_pose
+
+    # @world_from_element_pick_pose.setter
+    # def world_from_element_pick_pose(self, pose):
+    #     self._world_from_element_pick_pose = pose
+
+    # @property
+    # def obj_from_grasp_poses(self):
+    #     return self._obj_from_grasp_poses
+
+    # @obj_from_grasp_poses.setter
+    # def obj_from_grasp_poses(self, grasp_poses):
+    #     self._obj_from_grasp_poses = grasp_poses
 
     # --------------------------------------------------------------------------
     # attributes

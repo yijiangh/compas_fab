@@ -2,11 +2,11 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 
-# import json
-# import pickle
+import json
+import math
 
 from compas.geometry import Frame, Transformation
-from .utils import element_vert_key, extract_element_vert_id
+from compas_fab.assembly.datastructures.utils import element_vert_key, extract_element_vert_id
 
 __all__ = ['Element']
 
@@ -14,14 +14,14 @@ class Element(object):
 
     __module__ = 'compas_fab.assembly.datastructures'
 
-    def __init__(self, id):
+    def __init__(self, id, layer_id=0, is_grounded=False):
         super(Element, self).__init__()
-        self._parent_frame = Frame.worldXY() # TODO
         self._key = element_vert_key(id)
-        self._world_from_element_place_pose = None
-        self._world_from_element_pick_pose = None
-        self._obj_from_grasp_poses = []
-        self._grasp_from_approach_tfs = []
+        self._unit_geometry = None
+
+        self._layer_id = layer_id
+        self.is_grounded = is_grounded
+        self.to_ground_dist = math.inf
 
     @property
     def key(self):
@@ -32,87 +32,20 @@ class Element(object):
         return extract_element_vert_id(self.key)
 
     @property
-    def parent_frame(self):
-        return self._parent_frame
-
-    @property
-    def world_from_element_place_pose(self):
-        return self._world_from_element_place_pose
-
-    @world_from_element_place_pose.setter
-    def world_from_element_place_pose(self, pose):
-        self._world_from_element_place_pose = pose
-
-    @property
-    def world_from_element_pick_pose(self):
-        return self._world_from_element_pick_pose
-
-    @world_from_element_pick_pose.setter
-    def world_from_element_pick_pose(self, pose):
-        self._world_from_element_pick_pose = pose
-
-    @property
-    def obj_from_grasp_poses(self):
-        return self._obj_from_grasp_poses
-
-    @obj_from_grasp_poses.setter
-    def obj_from_grasp_poses(self, grasp_poses):
-        self._obj_from_grasp_poses = grasp_poses
-
-    def set_approach_poses_world(self, world_from_grasps, world_from_approachs):
-        self.grasp_from_approach_tfs = []
-        for world_from_grasp, world_from_approach in zip(world_from_grasps, world_from_approachs):
-            grasp_from_approach = Transformation.concatenate(
-                Transformation.from_frame(world_from_grasp).inverse(), Transformation.from_frame(world_from_approach))
-            self.grasp_from_approach_tfs.append(grasp_from_approach)
-            # print(grasp_from_approach)
-
-    @property
-    def grasp_from_approach_tfs(self):
-        return self._grasp_from_approach_tfs
-
-    @grasp_from_approach_tfs.setter
-    def grasp_from_approach_tfs(self, tfs):
-        self._grasp_from_approach_tfs = tfs
-
-    def set_grasp_poses_from_in_scene_poses(self, world_from_obj_pose, world_from_ee_poses):
-        """create obj_from_grasp poses from world
-        """
-        world_obj_tf = Transformation.from_frame(world_from_obj_pose)
-        self.obj_from_grasp_poses = []
-        for world_ee_fr in world_from_ee_poses:
-            w_ee_tf = Transformation.from_frame(world_ee_fr)
-            self.obj_from_grasp_poses.append(Frame.from_transformation(\
-                Transformation.concatenate(world_obj_tf.inverse(), w_ee_tf)))
-
-
-    @property
-    def world_from_pick_ee_poses(self):
-        """return a list of (world_from) ee pick poses
-        """
-        assert(self.world_from_element_pick_pose != None, "pick pose not defined!")
-        world_from_ee_pick = []
-        world_pick_tf = Transformation.from_frame(self.world_from_element_pick_pose)
-        for obj_from_ee in self.object_from_ee_poses:
-            w_f_ee_tf = Transformation.concatenate(world_pick_tf, Transformation.from_frame(obj_from_ee))
-            world_from_ee_pick.append(Frame.from_transformation(w_f_ee_tf))
-        return world_from_ee_pick
-
-    @property
-    def world_from_place_ee_poses(self):
-        """return a list of (world_from) ee place poses
-        """
-        assert(self.world_from_element_place_pose != None, "place pose not defined!")
-        world_from_ee_place = []
-        world_place_tf = Transformation.from_frame(self.world_from_element_place_pose)
-        for obj_from_ee in self.object_from_ee_poses:
-            w_f_ee_tf = Transformation.concatenate(world_place_tf, Transformation.from_frame(obj_from_ee))
-            world_from_ee_place.append(Frame.from_transformation(w_f_ee_tf))
-        return world_from_ee_place
-
+    def layer_id(self):
+        return self._layer_id
 
 # ==============================================================================
 # Main
 # ==============================================================================
 if __name__ == "__main__":
-    pass
+    # e = Element(id)
+    # e.world_from_element_place_pose = rPln2cFrame(world_from_place_poses[id])
+    # e.world_from_element_pick_pose = rPln2cFrame(world_from_pick_poses[id])
+    # print('{}, {}'.format(id, len(grasp_pose_lists[id])))
+    # cgrasp_poses = [rPln2cFrame(gpose) for gpose in grasp_pose_lists[id]]
+    # e.set_grasp_poses_from_in_scene_poses(e.world_from_element_pick_pose, cgrasp_poses)
+    # capproach_poses = [rPln2cFrame(apppose) for apppose in approach_pose_lists[id]]
+    # e.set_approach_poses_world(cgrasp_poses, capproach_poses)
+    # cmesh_list = [transform_cmesh_to_origin(rMesh2cMesh(rm), e.world_from_element_place_pose) for rm in rm_list]
+    # asm.add_element(e, id, cmesh_list)

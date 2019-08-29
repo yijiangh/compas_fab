@@ -7,16 +7,26 @@ from __future__ import division
 from compas.geometry import Frame
 from compas.datastructures import Mesh
 
-__all__ = ['VirtualJoint']
+from .utils import virtual_joint_key, extract_virtual_joint_vert_id
 
+__all__ = ['VirtualJoint']
 
 class VirtualJoint(object):
 
     __module__ = 'compas_fab.assembly.datastructures'
 
-    def __init__(self):
-        super(VirtualJoint, self).__init__()
+    def __init__(self, id, is_grounded=False):
+        self._key = virtual_joint_key(id)
         self._connected_element_ids = None
+        self._is_grounded = is_grounded
+
+    @property
+    def key(self):
+        return self._key
+
+    @property
+    def key_id(self):
+        return extract_virtual_joint_vert_id(self.key)
 
     @property
     def connected_element_ids(self):

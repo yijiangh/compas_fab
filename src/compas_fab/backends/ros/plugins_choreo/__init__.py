@@ -24,6 +24,8 @@ if not compas.IPY:
     from .ik_utils import *
     from .file_io import *
     from .sim_utils import *
+    from .planner_interface import *
+
 from .planner_interface import *
 
 __all__ = [name for name in dir() if not name.startswith('_')]
