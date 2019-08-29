@@ -113,7 +113,8 @@ class Assembly(object):
         """
         e_dict = dict()
         for v_key in self._net.vertex.keys():
-            e_dict[extract_element_vert_id(v_key)] = self.get_element(v_key)
+            if self.get_element(v_key):
+                e_dict[extract_element_vert_id(v_key)] = self.get_element(v_key)
         return e_dict
 
     def add_virtual_joint(self, vj_instance, unit_geometry=None):
@@ -128,8 +129,7 @@ class Assembly(object):
             [description], by default None
         """
         self._net.add_vertex(key=vj_instance.key, virtual_joint=vj_instance, tag='virtual_joint')
-        connected_e_ids = vj_instance.connected_element_ids
-        for e_id in connected_e_ids:
+        for e_id in vj_instance.connected_element_ids:
             # assert(element_vert_key(e_id) in self._net.vertex)
             self._net.add_edge(element_vert_key(e_id), vj_instance.key)
         if unit_geometry:
@@ -149,7 +149,8 @@ class Assembly(object):
     def virtual_joints(self):
         vj_dict = dict()
         for v_key in self._net.vertex.keys():
-            vj_dict[extract_virtual_joint_vert_id(v_key)] = self.get_element(v_key)
+            if self.get_virtual_joint(v_key):
+                vj_dict[extract_virtual_joint_vert_id(v_key)] = self.get_virtual_joint(v_key)
         return vj_dict
 
     # --------------
@@ -347,11 +348,18 @@ class Assembly(object):
         data['elements'] = []
         for e_id, e in self.elements.items():
             e_data = OrderedDict()
-            e_data['e_id'] = e_id
+            e_data['element'] = e.to_data()
             e_data['unit_geometry'] = self.element_geometries[e_id].to_data(mesh_path)
             data['elements'].append(e_data)
 
         # virtual joint data
+        data['virtual_joints'] = []
+        for vj_id, vj in self.virtual_joints.items():
+            vj_data = OrderedDict()
+            vj_data['virtual_joint'] = vj.to_data()
+            if vj_id in self._virtual_joint_geometries:
+                vj_data['unit_geometry'] = self._virtual_joint_geometries[vj_id].to_data(mesh_path)
+            data['virtual_joints'].append(vj_data)
 
         # TODO: for now, but these should be UnitGeometries as well
         data['static_obstacle_geometries'] = [so_ug.to_data(mesh_path) for so_ug in self.static_obstacle_geometries.values()]
@@ -386,10 +394,13 @@ class Assembly(object):
     def from_package(cls, data):
         assembly = cls()
         for e_data in data['elements']:
-            # TODO: Element.from_data
-            assembly.add_element(Element(e_data['e_id']), UnitGeometry.from_data(e_data['unit_geometry']))
+            e = Element.from_data(e_data['element'])
+            assembly.add_element(e, UnitGeometry.from_data(e_data['unit_geometry']))
 
         # virtual joints
+        for vj_data in data['virtual_joints']:
+            vj = VirtualJoint.from_data(vj_data['virtual_joint'])
+            assembly.add_virtual_joint(vj, UnitGeometry.from_data(e_data['unit_geometry']) if 'unit_geometry' in vj_data else None)
 
         # static obstacles
         assembly.static_obstacle_geometries = [UnitGeometry.from_data(ug_data) for ug_data in data['static_obstacle_geometries']]

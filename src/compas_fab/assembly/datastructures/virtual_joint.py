@@ -15,9 +15,9 @@ class VirtualJoint(object):
 
     __module__ = 'compas_fab.assembly.datastructures'
 
-    def __init__(self, id, is_grounded=False):
+    def __init__(self, id, connected_element_ids=[], is_grounded=False):
         self._key = virtual_joint_key(id)
-        self._connected_element_ids = None
+        self._connected_element_ids = connected_element_ids
         self._is_grounded = is_grounded
 
     @property
@@ -32,6 +32,10 @@ class VirtualJoint(object):
     def connected_element_ids(self):
         return self._connected_element_ids
 
+    @property
+    def is_grounded(self):
+        return self._is_grounded
+
     @connected_element_ids.setter
     def connected_element_ids(self, e_ids):
         self._connected_element_ids = e_ids
@@ -39,6 +43,17 @@ class VirtualJoint(object):
     # --------------
     # constructors
     # --------------
+    def to_data(self):
+        data = {}
+        data['vj_id'] = self.key_id
+        data['connected_element_ids'] = self.connected_element_ids
+        data['is_grounded'] = self.is_grounded
+        return data
+
+    @classmethod
+    def from_data(cls, data):
+        return cls(data['vj_id'], data['connected_element_ids'], data['is_grounded'])
+
 #     @classmethod
 #     def create_from_object_place_pose(cls, id, rbase_frame, \
 #             rgeometry_in_scene, rpose_in_scene):

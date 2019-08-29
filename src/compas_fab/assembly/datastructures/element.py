@@ -42,6 +42,18 @@ class Element(object):
     def unit_geometry(self, ug):
         self._unit_geometry = ug
 
+    # TODO: include unit geo
+    def to_data(self):
+        data = {}
+        data['e_id'] = self.key_id
+        data['layer_id'] = self.layer_id
+        data['is_grounded'] = self.is_grounded
+        return data
+
+    @classmethod
+    def from_data(cls, data):
+        return cls(data['e_id'], layer_id=data['layer_id'], is_grounded=data['is_grounded'])
+
 # ==============================================================================
 # Main
 # ==============================================================================

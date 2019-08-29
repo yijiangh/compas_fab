@@ -4,11 +4,15 @@
     "model_type": null, 
     "unit": "millimeter", 
     "element_number": 3, 
-    "virtual_joint_number": 0, 
-    "grounded_number": 0, 
+    "virtual_joint_number": 1, 
+    "grounded_number": 1, 
     "elements": [
         {
-            "e_id": 0, 
+            "element": {
+                "e_id": 0, 
+                "is_grounded": true, 
+                "layer_id": 0
+            }, 
             "unit_geometry": {
                 "parent_frame": {
                     "yaxis": [
@@ -7770,7 +7774,11 @@
             }
         }, 
         {
-            "e_id": 1, 
+            "element": {
+                "e_id": 1, 
+                "is_grounded": false, 
+                "layer_id": 0
+            }, 
             "unit_geometry": {
                 "parent_frame": {
                     "yaxis": [
@@ -15532,7 +15540,11 @@
             }
         }, 
         {
-            "e_id": 2, 
+            "element": {
+                "e_id": 2, 
+                "is_grounded": false, 
+                "layer_id": 0
+            }, 
             "unit_geometry": {
                 "parent_frame": {
                     "yaxis": [
@@ -23291,6 +23303,19 @@
                         79.433787951764103
                     ]
                 }
+            }
+        }
+    ], 
+    "virtual_joints": [
+        {
+            "virtual_joint": {
+                "is_grounded": false, 
+                "vj_id": 0, 
+                "connected_element_ids": [
+                    0, 
+                    1, 
+                    2
+                ]
             }
         }
     ], 
