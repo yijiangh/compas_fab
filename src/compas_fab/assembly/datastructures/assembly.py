@@ -3,7 +3,6 @@ from __future__ import absolute_import
 from __future__ import division
 
 import os
-import math
 import json
 from collections import OrderedDict
 
@@ -164,7 +163,7 @@ class Assembly(object):
         return self._num_of_elements
 
     def get_size_of_grounded_elements(self):
-        return len([e for e in self.elements if e.is_grounded])
+        return len([e for e in self.elements.values() if e.is_grounded])
 
     # --------------
     # Neighbor / connectivity query
@@ -172,11 +171,17 @@ class Assembly(object):
 
     def get_element_neighbored_virtual_joints(self, e_id):
         nghb_keys = self._net.vertex_neighbors(element_vert_key(e_id))
-        return [self._net.get_vertex_attribute(vj_key, 'virtual_joint') for vj_key in nghb_keys]
+        return [self._net.get_vertex_attribute(key, 'virtual_joint') for key in nghb_keys if extract_virtual_joint_vert_id(key) is not None]
 
-    def get_element_neighbored_elements(self, e_id):
+    def get_element_neighbored_elements(self, e_id, index_only=False):
         nghb_keys = self._net.vertex_neighborhood(element_vert_key(e_id), ring=1)
+        if index_only:
+            return [extract_element_vert_id(key) for key in nghb_keys if extract_element_vert_id(key) is not None]
         return [self._net.get_vertex_attribute(key, 'elements') for key in nghb_keys if extract_element_vert_id(key) is not None]
+
+    def get_virtual_joint_neighbored_elements(self, vj_id):
+        nghb_keys = self._net.vertex_neighbors(virtual_joint_key(vj_id))
+        return [self._net.get_vertex_attribute(key, 'virtual_joint') for key in nghb_keys if extract_element_vert_id(key) is not None]
 
     def get_element_shared_virtual_joints(self, e1_id, e2_id):
         """get virtual joint shared by the two input elements
@@ -197,7 +202,8 @@ class Assembly(object):
         e2_nghb_keys = self._net.vertex_neighbors(element_vert_key(e2_id))
         shared_keys = set(e1_nghb_keys)
         shared_keys.intersection_update(e2_nghb_keys)
-        return [self._net.get_vertex_attribute(key, 'virtual_joint') for key in list(shared_keys) if extract_virtual_joint_vert_id(key) is not None]
+        return [self._net.get_vertex_attribute(key, 'virtual_joint') \
+            for key in list(shared_keys) if extract_virtual_joint_vert_id(key) is not None]
 
     # TODO: get_virtual_joint_shared_elements
 
@@ -214,6 +220,10 @@ class Assembly(object):
     # --------------
     # geometries info query
     # --------------
+
+    @property
+    def element_geometries(self):
+        return {extract_element_vert_id(e_key) : unit_geo for e_key, unit_geo in self._element_geometries.items()}
 
     def get_element_geometry_in_pick_pose(self, e_id):
         """return shape geometries in pick pose"""
@@ -259,7 +269,7 @@ class Assembly(object):
     def dijkstra(self, src_e_id, sub_graph=None):
         def min_distance(e_size, dist, visited_set):
             # return -1 if all the unvisited vertices' dist = inf (disconnected)
-            min = math.inf
+            min = 1e10
             min_index = -1
             for e_id in range(e_size):
                 if dist[e_id] < min and not visited_set[e_id]:
@@ -270,8 +280,9 @@ class Assembly(object):
 
         if self.is_element_grounded(src_e_id):
             return 0
+
         e_size = self.get_size_of_elements()
-        dist = [math.inf] * e_size
+        dist = [1e10] * e_size
         dist[src_e_id] = 0
         visited_set = [False] * e_size
 
@@ -283,10 +294,8 @@ class Assembly(object):
             if e_id == -1:
                 # all unvisited ones are inf distance (not connected)
                 break
-
             visited_set[e_id] = True
-
-            nbhd_e_ids = set(self.get_element_neighbor(e_id))
+            nbhd_e_ids = set(self.get_element_neighbored_elements(e_id, index_only=True))
             if sub_graph:
                 nbhd_e_ids = nbhd_e_ids.intersection(sub_graph)
 
@@ -295,14 +304,13 @@ class Assembly(object):
                     dist[n_e_id] = dist[e_id] + 1
 
         # get smallest dist to the grounded elements
-        grounded_dist = [dist[e.e_id] for e in self.assembly_elements.values() if e.is_grounded]
+        grounded_dist = [dist[e.key_id] for e in self.elements.values() if e.is_grounded]
         return min(grounded_dist)
 
-    # @timecall
     def compute_traversal_to_ground_dist(self, sub_graph=None):
-        considered_e_ids = self.assembly_elements.keys() if not sub_graph else sub_graph
-        for e in considered_e_ids:
-            self.assembly_elements[e].to_ground_dist = self.dijkstra(e, sub_graph)
+        considered_e_ids = self.elements.keys() if not sub_graph else sub_graph
+        for e_id in considered_e_ids:
+            self.get_element(e_id).to_ground_dist = self.dijkstra(e_id, sub_graph)
 
     # --------------
     # static obstacle getter / setter
@@ -313,29 +321,14 @@ class Assembly(object):
         return self._static_obstacle_geometries
 
     @static_obstacle_geometries.setter
-    def static_obstacle_geometries(self, cmesh_lists):
-        # assert(isinstance(cmesh_lists, list))
-        self._static_obstacle_geometries = {STATIC_OBSTACLE_PREFIX + '_' + str(id) : cl for id, cl in enumerate(cmesh_lists)}
+    def static_obstacle_geometries(self, unit_geometries):
+        self._static_obstacle_geometries = {ug.name : ug for ug in unit_geometries}
 
     # --------------
     # exporters
     # --------------
 
-    def save_element_geometries_to_objs(self, mesh_path):
-        if not os.path.isdir(mesh_path):
-            os.mkdir(mesh_path)
-        for eg_key, eg_val in self._element_geometries.items():
-            for sub_id, cm in enumerate(eg_val):
-                cm.to_obj(os.path.join(mesh_path, obj_name(eg_key, sub_id)))
-
-    def save_static_obstacles_geometries_to_objs(self, mesh_path):
-        if not os.path.isdir(mesh_path):
-            os.mkdir(mesh_path)
-        for eg_key, eg_val in self.static_obstacle_geometries.items():
-            for sub_id, cm in enumerate(eg_val):
-                cm.to_obj(os.path.join(mesh_path, obj_name(eg_key, sub_id)))
-
-    def save_assembly_to_json(self, json_path, pkg_name='', assembly_type='', model_type='', unit='', given_seq=None):
+    def save_assembly_to_json(self, json_path, pkg_name='', assembly_type='', model_type='', unit='', mesh_path=''):
         if not os.path.isdir(json_path):
             os.mkdir(json_path)
         json_file_path = os.path.join(json_path, pkg_name + '.json')
@@ -345,66 +338,31 @@ class Assembly(object):
         data['assembly_type'] = assembly_type
         data['model_type'] = model_type
         data['unit'] = unit
-        data['with_given_sequence'] = bool(given_seq)
         # TODO: sanity check: vj geo + element geo = given seq
 
-        data['element_number'] = self._num_of_elements
-        data['sequenced_elements'] = OrderedDict()
+        data['element_number'] = self.get_size_of_elements()
+        data['virtual_joint_number'] = self.get_size_of_virtual_joints()
+        data['grounded_number'] = self.get_size_of_grounded_elements()
 
-        for e, order_id in zip(self.elements.values(), given_seq):
+        data['elements'] = []
+        for e_id, e in self.elements.items():
             e_data = OrderedDict()
-            e_data['order_id'] = order_id
-            e_data['object_id'] = e.key
-            e_data['parent_frame'] = Transformation.from_frame(e.parent_frame).list
-            e_data['element_geometry_file_names'] = {sub_id : {'full_obj' : obj_name(e.key, sub_id)} \
-                for sub_id in range(len(self._element_geometries[e.key]))}
+            e_data['e_id'] = e_id
+            e_data['unit_geometry'] = self.element_geometries[e_id].to_data(mesh_path)
+            data['elements'].append(e_data)
 
-            e_data['assembly_process'] = OrderedDict()
-            pick = OrderedDict()
-            pick['process_name'] = 'pick'
-            pick['parent_frame'] = Transformation.from_frame(e.parent_frame).list
-            pick['object_target_pose'] = Transformation.from_frame(e.world_from_element_pick_pose).list
-            pick['allowed_collision_obj_names'] = [] # support tables, neighbor elements?
-            # old names: pick_contact_ngh_ids, pick_support_surface_file_names
-            pick['grasp_from_approach_tf'] = e.grasp_from_approach_tfs[0].list
-            e_data['assembly_process']['pick'] = pick
+        # virtual joint data
 
-            place = OrderedDict()
-            place['process_name'] = 'place'
-            place['parent_frame'] = Transformation.from_frame(e.parent_frame).list
-            place['object_target_pose'] = Transformation.from_frame(e.world_from_element_place_pose).list
-            place['allowed_collision_obj_names'] = [] # support tables
-            place['grasp_from_approach_tf'] = e.grasp_from_approach_tfs[0].list
-            e_data['assembly_process']['place'] = place
-            # TODO: neighbor ACM
-            # for nghb_id in self.vertex_neighborhood(v):
-            #     place['allowed_collision_obj_names'].extend(
-            #         [obj_name(nghb_id, sub_id) \
-            #             for sub_id in range(len(self.assembly_object(nghb_id).shape))])
-
-            grasp_data = OrderedDict()
-            grasp_data['parent_link'] = 'object'
-            grasp_data['ee_poses'] = [Transformation.from_frame(ee_p).list \
-                for ee_p in e.obj_from_grasp_poses]
-
-            e_data['grasps'] = grasp_data
-            data['sequenced_elements'][e.key] = e_data
-
-        data['static_obstacles'] = OrderedDict()
-        for cl_key, cl in self.static_obstacle_geometries.items():
-            data['static_obstacles'][cl_key] = OrderedDict()
-            for sub_id in range(len(cl)):
-                data['static_obstacles'][cl_key][sub_id] = OrderedDict()
-                data['static_obstacles'][cl_key][sub_id]['full_obj'] = \
-                obj_name(cl_key , sub_id)
+        # TODO: for now, but these should be UnitGeometries as well
+        data['static_obstacle_geometries'] = [so_ug.to_data(mesh_path) for so_ug in self.static_obstacle_geometries.values()]
 
         with open(json_file_path, 'w') as outfile:
             json.dump(data, outfile, indent=4)
 
-    # def save_assembly_to_urdf(self, urdf_path):
-    #     pass
+    def save_assembly_to_urdf(self, urdf_path):
+        raise NotImplementedError
 
-    def save_to_assembly_planning_pkg(self, save_path, pkg_name, \
+    def to_package(self, save_path, pkg_name, \
         assembly_type="", model_type="", unit="", given_seq=None):
         root_path = os.path.join(save_path, pkg_name)
         if not os.path.isdir(root_path):
@@ -418,19 +376,25 @@ class Assembly(object):
             if not os.path.isdir(p):
                 os.mkdir(p)
 
-        # generate obj files
-        self.save_element_geometries_to_objs(mesh_path)
-        self.save_static_obstacles_geometries_to_objs(mesh_path)
-
         # generate json
-        self.save_assembly_to_json(json_path, pkg_name, assembly_type, model_type, unit, given_seq)
+        self.save_assembly_to_json(json_path, pkg_name, assembly_type, model_type, unit, mesh_path)
 
         # TODO: genereate static collision objects urdf
         # self.generate_env_collision_objects_urdf(collision_objs, urdf_path)
 
     @classmethod
-    def from_assembly_planning_pkg(cls):
-        pass
+    def from_package(cls, data):
+        assembly = cls()
+        for e_data in data['elements']:
+            # TODO: Element.from_data
+            assembly.add_element(Element(e_data['e_id']), UnitGeometry.from_data(e_data['unit_geometry']))
+
+        # virtual joints
+
+        # static obstacles
+        assembly.static_obstacle_geometries = [UnitGeometry.from_data(ug_data) for ug_data in data['static_obstacle_geometries']]
+
+        return assembly
 
     def __repr__(self):
         return 'assembly_net: #virual joint:{0}, #element:{1}'.format(self.get_size_of_virtual_joints(), self.get_size_of_elements())
@@ -438,26 +402,14 @@ class Assembly(object):
     def print_neighbors(self):
         """debug function
         """
-        for e in self.assembly_elements.values():
+        for e in self.elements.values():
             print('grounded:{}'.format(e.is_grounded))
-            print('neighbor e of e{0}:{1}'.format(e.e_id, self.get_element_neighbor(e.e_id)))
-            for end_id in e.node_ids:
-                print('neighbor e of end{0}/e{1}:{2}'.format(
-                    end_id, e.e_id, self.get_element_neighbor(e.e_id, end_id)))
+            print('neighbor e of e#{0}: {1}'.format(e.key_id, self.get_element_neighbored_elements(e.key_id)))
+            print('neighbor vjs of e#{0}: {1}'.format(e.key_id, self.get_element_neighbored_virtual_joints(e.key_id)))
 
-        for v in self.assembly_joints.values():
-            print('neighbor e of v{0}: {1}'.format(v.node_id, self.get_node_neighbor(v.node_id)))
+        for vj in self.virtual_joints.values():
+            print('neighbor e of v{0}: {1}'.format(vj.key_id, self.get_virtual_joint_neighbored_elements(vj.key_id)))
 
 if __name__ == "__main__":
+    # Rhino example
     pass
-    # from compas.datastructures import Mesh
-    # from compas_fab.assembly import Element
-
-    # assembly = Assembly()
-    # mesh = Mesh.from_polyhedron(4)
-
-    # for i in range(2):
-    #     element = Element.from_mesh(mesh)
-    #     assembly.add_element(element)
-
-    # print(assembly.summary())

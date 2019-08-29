@@ -31,7 +31,7 @@ convert_mesh_to_pybullet_body, get_TCP_pose, create_pb_robot_from_ros_urdf, \
 convert_meshes_and_poses_to_pybullet_bodies, sanity_check_collisions, \
 pb_pose_from_Transformation
 
-from compas_fab.backends.ros.plugins_choreo import load_pick_and_place, display_picknplace_trajectories
+from compas_fab.backends.ros.plugins_choreo import load_assembly_package, display_picknplace_trajectories
 
 from conrob_pybullet import load_pybullet, connect, disconnect, wait_for_user, \
     LockRenderer, has_gui, get_model_info, get_pose, euler_from_quat, draw_pose, \
@@ -78,9 +78,9 @@ def test_choreo_plan_single_cartesian_motion():
 
     # choreo pkg settings
     choreo_problem_instance_dir = compas_fab.get('choreo_instances')
-    # unit_geos, static_obstacles = load_pick_and_place(choreo_problem_instance_dir,
+    # unit_geos, static_obstacles = load_assembly_package(choreo_problem_instance_dir,
     #                                                     'ur_picknplace_single_piece', scale=1e-3)
-    unit_geos, static_obstacles = load_pick_and_place(choreo_problem_instance_dir,
+    unit_geos, static_obstacles = load_assembly_package(choreo_problem_instance_dir,
                                                         'ur_picknplace_multiple_piece', scale=1e-3)
 
     # urdf, end effector settings
@@ -125,9 +125,9 @@ def test_choreo_plan_single_cartesian_motion():
         client.set_joint_positions(group, ik_joint_names, ur5_start_conf)
 
         # add static collision obstacles
-        for static_obs_name, static_obs_mesh in static_obstacles.items():
+        for i, static_obs_mesh in enumerate(static_obstacles):
             # offset the table a bit...
-            cm = CollisionMesh(static_obs_mesh, static_obs_name, frame=Frame.from_transformation(Translation([0, 0, -0.02])))
+            cm = CollisionMesh(static_obs_mesh, 'so_'+str(i), frame=Frame.from_transformation(Translation([0, 0, -0.02])))
             scene.add_collision_mesh(cm)
 
         # See: https://github.com/compas-dev/compas_fab/issues/63#issuecomment-519525879
@@ -174,8 +174,9 @@ def test_choreo_plan_single_cartesian_motion():
         # shuffle(seq_assignment)
         element_seq = {seq_id : e_id for seq_id, e_id in enumerate(seq_assignment)}
 
-        for key, val in element_seq.items():
-            element_seq[key] = 'e_' + str(val)
+        # for key, val in element_seq.items():
+        #     # element_seq[key] = 'e_' + str(val)
+        #     element_seq[key] = val
 
         if has_gui():
             for e_id in element_seq.values():

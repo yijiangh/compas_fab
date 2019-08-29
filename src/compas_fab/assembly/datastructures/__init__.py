@@ -6,9 +6,8 @@ import compas
 
 from .assembly import *
 from .element import *
-
-if not compas.IPY:
-    from .unit_geometry import *
-    from .grasp import *
+from .virtual_joint import *
+from .unit_geometry import *
+from .grasp import *
 
 __all__ = [name for name in dir() if not name.startswith('_')]
