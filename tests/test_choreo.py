@@ -64,8 +64,6 @@ def test_choreo_plan_single_cartesian_motion():
     TRANSITION_JT_RESOLUTION = 0.01
     plan_transition = True
     use_moveit_planner = False
-    # result_save_path = 'C:/Users/harry/Documents/choreo_result/choreo_result.json'
-    result_save_path = None
 
     # sim settings
     CART_TIME_STEP = 0.1 # 0.075
@@ -78,10 +76,13 @@ def test_choreo_plan_single_cartesian_motion():
 
     # choreo pkg settings
     choreo_problem_instance_dir = compas_fab.get('choreo_instances')
-    # unit_geos, static_obstacles = load_assembly_package(choreo_problem_instance_dir,
-    #                                                     'ur_picknplace_single_piece', scale=1e-3)
     unit_geos, static_obstacles = load_assembly_package(choreo_problem_instance_dir,
-                                                        'ur_picknplace_multiple_piece', scale=1e-3)
+                                                        'ur_picknplace_single_piece', scale=1e-3)
+    # unit_geos, static_obstacles = load_assembly_package(choreo_problem_instance_dir,
+                                                        # 'ur_picknplace_multiple_piece', scale=1e-3)
+
+    result_save_path = os.path.join(choreo_problem_instance_dir, 'results', 'choreo_result.json')
+    # result_save_path = None
 
     # urdf, end effector settings
     urdf_filename = compas_fab.get('universal_robot/ur_description/urdf/ur5.urdf')
@@ -353,25 +354,24 @@ def test_choreo_plan_single_cartesian_motion():
                     saved_world.restore()
                     picknplace_cart_plans[seq_id]['return2idle'] = return2idle_path
 
-
             print('Transition planning finished.')
 
-        if result_save_path:
-            # convert to ros JointTrajectory
-            traj_json_data = []
-            traj_time_count = 0.0
-            for i, element_process in enumerate(picknplace_cart_plans):
-                e_proc_data = {}
-                for sub_proc_name, sub_process in element_process.items():
-                    sub_process_jt_traj_list =[]
-                    for jt_sol in sub_process:
-                        sub_process_jt_traj_list.append(
-                            JointTrajectoryPoint(values=jt_sol, types=[0] * 6, time_from_start=Duration(traj_time_count, 0)))
-                        traj_time_count += 1.0 # meaningless timestamp
-                    e_proc_data[sub_proc_name] = JointTrajectory(trajectory_points=sub_process_jt_traj_list,
-                                                                 start_configuration=sub_process_jt_traj_list[0]).to_data()
-                traj_json_data.append(e_proc_data)
+        # convert to ros JointTrajectory
+        traj_json_data = []
+        traj_time_count = 0.0
+        for i, element_process in enumerate(picknplace_cart_plans):
+            e_proc_data = {}
+            for sub_proc_name, sub_process in element_process.items():
+                sub_process_jt_traj_list =[]
+                for jt_sol in sub_process:
+                    sub_process_jt_traj_list.append(
+                        JointTrajectoryPoint(values=jt_sol, types=[0] * 6, time_from_start=Duration(traj_time_count, 0)))
+                    traj_time_count += 1.0 # meaningless timestamp
+                e_proc_data[sub_proc_name] = JointTrajectory(trajectory_points=sub_process_jt_traj_list,
+                                                                start_configuration=sub_process_jt_traj_list[0]).to_data()
+            traj_json_data.append(e_proc_data)
 
+        if result_save_path:
             with open(result_save_path, 'w+') as outfile:
                 json.dump(traj_json_data, outfile, indent=4)
                 print('planned trajectories saved to {}'.format(result_save_path))
@@ -385,8 +385,68 @@ def test_choreo_plan_single_cartesian_motion():
                 set_pose(e_body, unit_geos[e_id].initial_pb_pose)
 
         display_picknplace_trajectories(pb_robot, ik_joint_names, ee_link_name,
-                                        unit_geos, element_seq, picknplace_cart_plans, \
+                                        unit_geos, traj_json_data, \
                                         ee_attachs=ee_attachs,
                                         cartesian_time_step=CART_TIME_STEP, transition_time_step=TRANSITION_TIME_STEP, step_sim=True, per_conf_step=PER_CONF_STEP)
 
         scene.remove_all_collision_objects()
+
+
+@pytest.mark.viz_traj
+def test_viz_saved_trajectory():
+    VIZ = True
+
+    # sim settings
+    CART_TIME_STEP = 0.1 # 0.075
+    TRANSITION_TIME_STEP = 0.005
+    PER_CONF_STEP = False
+
+    connect(use_gui=VIZ)
+
+    urdf_filename = compas_fab.get('universal_robot/ur_description/urdf/ur5.urdf')
+    srdf_filename = compas_fab.get('universal_robot/ur5_moveit_config/config/ur5.srdf')
+    urdf_pkg_name = 'ur_description'
+
+    ee_filename = compas_fab.get('universal_robot/ur_description/meshes/' +
+                                'pychoreo_workshop_gripper/collision/victor_gripper_jaw03.obj')
+    choreo_problem_instance_dir = compas_fab.get('choreo_instances')
+
+    model = RobotModel.from_urdf_file(urdf_filename)
+    semantics = RobotSemantics.from_srdf_file(srdf_filename, model)
+    robot = RobotClass(model, semantics=semantics)
+
+    ee_meshes = [Mesh.from_obj(ee_filename)]
+    unit_geos, static_obstacles = load_assembly_package(choreo_problem_instance_dir,
+                                                        'ur_picknplace_multiple_piece', scale=1e-3)
+
+    result_save_path = os.path.join(choreo_problem_instance_dir, 'results', 'choreo_result.json')
+    with open(result_save_path, 'r') as f:
+        json_data = json.loads(f.read())
+
+    group = robot.main_group_name
+    base_link_name = robot.get_base_link_name()
+    ee_link_name = robot.get_end_effector_link_name()
+    ik_joint_names = robot.get_configurable_joint_names()
+
+    pb_robot = create_pb_robot_from_ros_urdf(urdf_filename, urdf_pkg_name,
+                                            ee_link_name=ee_link_name)
+    ee_attachs = attach_end_effector_geometry(ee_meshes, pb_robot, ee_link_name)
+
+    # update current joint conf and attach end effector
+    pb_ik_joints = joints_from_names(pb_robot, ik_joint_names)
+    pb_end_effector_link = link_from_name(pb_robot, ee_link_name)
+
+    # add static collision obstacles
+    static_meshes_from_name = {}
+    static_obstacles_from_name = {}
+    for i, static_obs_mesh in enumerate(static_obstacles):
+        # offset the table a bit...
+        cm = CollisionMesh(static_obs_mesh, 'so_'+str(i), frame=Frame.from_transformation(Translation([0, 0, -0.02])))
+        static_meshes_from_name['so_' + str(i)] = cm
+    for so_key, so_val in static_meshes_from_name.items():
+        static_obstacles_from_name[so_key] = convert_mesh_to_pybullet_body(so_val.mesh, frame=so_val.frame)
+
+    display_picknplace_trajectories(pb_robot, ik_joint_names, ee_link_name,
+                                    unit_geos, json_data, \
+                                    ee_attachs=ee_attachs,
+                                    cartesian_time_step=CART_TIME_STEP, transition_time_step=TRANSITION_TIME_STEP, step_sim=True, per_conf_step=PER_CONF_STEP)

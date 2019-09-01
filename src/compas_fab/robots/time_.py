@@ -40,6 +40,16 @@ class Duration(object):
         return self.secs + 1e-9 * self.nsecs
 
     @classmethod
+    def from_seconds(cls, seconds):
+        """Construct a duration from a float second (e.g. 535.66726)
+
+        Parameters
+        ----------
+        seconds : float
+        """
+        return cls(int(seconds), (seconds - int(seconds))*1e9)
+
+    @classmethod
     def from_data(cls, data):
         """Construct a duration from its data representation.
 

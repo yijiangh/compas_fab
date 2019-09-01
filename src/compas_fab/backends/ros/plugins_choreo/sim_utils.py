@@ -1,8 +1,28 @@
 from conrob_pybullet import joints_from_names, link_from_name, set_joint_positions, \
     wait_for_duration, wait_for_user, create_attachment
 
+def display_trajectory_chunk(robot, ik_joint_names,
+                             trajectory, \
+                             ee_attachs=[], grasped_attach=[],
+                             time_step=0.1, step_sim=False, per_conf_step=False):
+    # enable_gravity()
+    ik_joints = joints_from_names(robot, ik_joint_names)
+
+    for conf in trajectory['points']:
+        set_joint_positions(robot, ik_joints, conf['values'])
+
+        for ea in ee_attachs: ea.assign()
+        for at in grasped_attach: at.assign()
+
+        if not per_conf_step:
+            wait_for_duration(time_step)
+        else:
+            wait_for_user()
+
+    if step_sim: wait_for_user()
+
 def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
-                                    unit_geos, element_seq, trajectories, \
+                                    unit_geos, trajectories, \
                                     ee_attachs=[],
                                     cartesian_time_step=0.075, transition_time_step=0.1, step_sim=False, per_conf_step=False):
     # enable_gravity()
@@ -11,13 +31,13 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
 
     for seq_id, unit_picknplace in enumerate(trajectories):
         handles = []
-        unit_geo = unit_geos[element_seq[seq_id]]
+        unit_geo = unit_geos[seq_id]
 
         print('seq #{} : place 2 pick tranisiton'.format(seq_id))
-        if 'place2pick' in unit_picknplace and unit_picknplace['place2pick']:
+        if 'place2pick' in unit_picknplace and unit_picknplace['place2pick']['points']:
             # place2pick transition
-            for conf in unit_picknplace['place2pick']:
-                set_joint_positions(robot, ik_joints, conf)
+            for conf in unit_picknplace['place2pick']['points']:
+                set_joint_positions(robot, ik_joints, conf['values'])
                 for ea in ee_attachs: ea.assign()
                 if not per_conf_step:
                     wait_for_duration(transition_time_step)
@@ -31,8 +51,8 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
         print('seq #{} : pick approach'.format(seq_id))
         # pick_approach
         # unit_picknplace['pick_approach'].pop(0)
-        for conf in unit_picknplace['pick_approach']:
-            set_joint_positions(robot, ik_joints, conf)
+        for conf in unit_picknplace['pick_approach']['points']:
+            set_joint_positions(robot, ik_joints, conf['values'])
             for ea in ee_attachs: ea.assign()
             if not per_conf_step:
                 wait_for_duration(cartesian_time_step)
@@ -49,8 +69,8 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
 
         print('seq #{} : pick retreat'.format(seq_id))
         # pick_retreat
-        for conf in unit_picknplace['pick_retreat']:
-            set_joint_positions(robot, ik_joints, conf)
+        for conf in unit_picknplace['pick_retreat']['points']:
+            set_joint_positions(robot, ik_joints, conf['values'])
             for ea in ee_attachs: ea.assign()
             for at in attachs: at.assign()
             if not per_conf_step:
@@ -62,9 +82,9 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
 
         print('seq #{} : pick 2 place tranisiton'.format(seq_id))
         # pick2place transition
-        if 'pick2place' in unit_picknplace and unit_picknplace['pick2place']:
-            for conf in unit_picknplace['pick2place']:
-                set_joint_positions(robot, ik_joints, conf)
+        if 'pick2place' in unit_picknplace and unit_picknplace['pick2place']['points']:
+            for conf in unit_picknplace['pick2place']['points']:
+                set_joint_positions(robot, ik_joints, conf['values'])
                 for ea in ee_attachs: ea.assign()
                 for at in attachs: at.assign()
                 if not per_conf_step:
@@ -78,8 +98,8 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
 
         print('seq #{} : place approach'.format(seq_id))
         # place_approach
-        for conf in unit_picknplace['place_approach']:
-            set_joint_positions(robot, ik_joints, conf)
+        for conf in unit_picknplace['place_approach']['points']:
+            set_joint_positions(robot, ik_joints, conf['values'])
             for ea in ee_attachs: ea.assign()
             for at in attachs: at.assign()
             if not per_conf_step:
@@ -94,8 +114,8 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
 
         print('seq #{} : place retreat'.format(seq_id))
         # place_retreat
-        for conf in unit_picknplace['place_retreat']:
-            set_joint_positions(robot, ik_joints, conf)
+        for conf in unit_picknplace['place_retreat']['points']:
+            set_joint_positions(robot, ik_joints, conf['values'])
             for ea in ee_attachs: ea.assign()
             if not per_conf_step:
                 wait_for_duration(cartesian_time_step)
@@ -105,8 +125,8 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
         if step_sim: wait_for_user()
 
         if seq_id == len(trajectories)-1 and 'return2idle' in unit_picknplace:
-            for conf in unit_picknplace['return2idle']:
-                set_joint_positions(robot, ik_joints, conf)
+            for conf in unit_picknplace['return2idle']['points']:
+                set_joint_positions(robot, ik_joints, conf['values'])
                 for ea in ee_attachs: ea.assign()
                 if not per_conf_step:
                     wait_for_duration(transition_time_step)
