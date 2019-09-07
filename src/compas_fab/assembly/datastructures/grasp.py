@@ -1,4 +1,6 @@
 from compas.geometry import Transformation, Frame
+from compas.geometry import distance_point_point
+
 
 # TODO: abstract class for representing robotic primitives
 class Grasp(object):
