@@ -9,15 +9,29 @@ from compas.geometry import Frame
 from compas.datastructures import Mesh
 
 class UnitGeometry(object):
+    """Unit geometry ...
+
+    Note:
+    We assume in most use cases, there is only one designated goal pose of the geometry from the users.
+    The initial poses, however, might vary depends on the grasp poses, espcially in the case when the
+    unit geometry has symmetric properties.
+
+    For example, in the case of a beam with 4 identical side faces (or a rod), a user might designate
+    multiple grasp poses in **goal** pose, but only one grasp pose for **initial** pose, which is limited
+    because of the material rack's design.
+
+    """
     def __init__(self, name='', mesh=[], body=[],
-                 initial_frame=None, goal_frame=None,
+                 initial_frame=None, goal_frames=[],
                  grasps=[], initial_supports=[], goal_supports=[], parent_frame=None):
+        # mesh is transformed to the world origin, on the user side
         self._name = name
         self._mesh = mesh
         self._body = body
         self._parent_frame =  parent_frame or Frame.worldXY()
-        self._initial_frame =  initial_frame or Frame.worldXY()
-        self._goal_frame = goal_frame or Frame.worldXY()
+        self._initial_frame = initial_frame or Frame.worldXY()
+        # goal frames is a list to indicate symmetry in the unit geometry
+        self._goal_frames = goal_frames or [Frame.worldXY()]
         self._grasps = grasps
         self._initial_supports = initial_supports
         self._goal_supports = goal_supports
@@ -83,18 +97,33 @@ class UnitGeometry(object):
     def goal_frame(self):
         """world_from_element_place pose
         """
-        # TODO: if no body is stored, create from compas mesh
-        return self._goal_frame
+        return self._goal_frames[0]
 
-    @goal_frame.setter
-    def goal_frame(self, frame):
-        self._goal_frame = frame
+    @property
+    def goal_frames(self):
+        """world_from_element_place pose
+        """
+        # TODO: if no body is stored, create from compas mesh
+        return self._goal_frames
+
+    @goal_frames.setter
+    def goal_frames(self, frames):
+        assert isinstance(frames, list)
+        self._goal_frames = frames
 
     @property
     def goal_pb_pose(self):
         try:
             from compas_fab.backends.pybullet import pb_pose_from_Frame
-            return pb_pose_from_Frame(self._goal_frame)
+            return pb_pose_from_Frame(self.goal_frame)
+        except ImportError:
+            return None
+
+    @property
+    def goal_pb_poses(self):
+        try:
+            from compas_fab.backends.pybullet import pb_pose_from_Frame
+            return [pb_pose_from_Frame(gf) for gf in self.goal_frames]
         except ImportError:
             return None
 
@@ -146,7 +175,8 @@ class UnitGeometry(object):
             scale_mesh(self.mesh[i], scale)
         scale_frame(self._parent_frame, scale)
         scale_frame(self._initial_frame, scale)
-        scale_frame(self._goal_frame, scale)
+        for gf in self._goal_frames:
+            scale_frame(gf, scale)
         for i in range(len(self._grasps)):
             self._grasps[i].rescale(scale)
 
@@ -174,7 +204,7 @@ class UnitGeometry(object):
 
         data['parent_frame'] = self._parent_frame.to_data()
         data['initial_frame'] = self._initial_frame.to_data()
-        data['goal_frame'] = self._goal_frame.to_data()
+        data['goal_frames'] = [gf.to_data() for gf in self._goal_frames]
         data['grasps'] = [g.to_data() for g in self._grasps]
 
         # TODO:
@@ -190,5 +220,5 @@ class UnitGeometry(object):
                 meshes.append(Mesh.from_obj(file_name))
         grasps = [Grasp.from_data(g_data) for g_data in data['grasps']]
         return cls(data['name'], mesh=meshes,
-                 initial_frame=Frame.from_data(data['initial_frame']), goal_frame=Frame.from_data(data['goal_frame']),
+                 initial_frame=Frame.from_data(data['initial_frame']), goal_frames=[Frame.from_data(gf_data) for gf_data in data['goal_frames']],
                  grasps=grasps, parent_frame=Frame.from_data(data['parent_frame']))
