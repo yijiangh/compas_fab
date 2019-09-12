@@ -25,8 +25,9 @@ def warning_print(msg):
     print('\x1b[6;30;43m' + msg + '\x1b[0m')
 
 
-def load_assembly_package(instance_dir, instance_name, scale=1.0):
-    with open(os.path.join(instance_dir, instance_name, 'json', instance_name + '.json'), 'r') as f:
+def load_assembly_package(package_json_path, scale=1.0):
+    # os.path.join(instance_dir, instance_name, 'json', instance_name + '.json')
+    with open(package_json_path, 'r') as f:
         json_data = json.loads(f.read())
 
     assembly = Assembly.from_package(json_data)
@@ -40,4 +41,3 @@ def load_assembly_package(instance_dir, instance_name, scale=1.0):
         static_obstacles.extend(ug.mesh)
 
     return assembly.element_geometries, static_obstacles
-
