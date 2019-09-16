@@ -23,7 +23,8 @@ class UnitGeometry(object):
     """
     def __init__(self, name='', mesh=[], body=[],
                  initial_frame=None, goal_frames=[],
-                 grasps=[], initial_supports=[], goal_supports=[], parent_frame=None):
+                 pick_grasps=[], place_grasps=[],
+                 initial_supports=[], goal_supports=[], parent_frame=None):
         # mesh is transformed to the world origin, on the user side
         self._name = name
         self._mesh = mesh
@@ -32,7 +33,8 @@ class UnitGeometry(object):
         self._initial_frame = initial_frame or Frame.worldXY()
         # goal frames is a list to indicate symmetry in the unit geometry
         self._goal_frames = goal_frames or [Frame.worldXY()]
-        self._grasps = grasps
+        self._pick_grasps = pick_grasps
+        self._place_grasps = pick_grasps
         self._initial_supports = initial_supports
         self._goal_supports = goal_supports
 
@@ -66,14 +68,24 @@ class UnitGeometry(object):
         self._mesh = input_mesh
 
     @property
-    def grasps(self):
+    def pick_grasps(self):
         """obj_from_grasp_poses
         """
-        return self._grasps
+        return self._pick_grasps
 
-    @grasps.setter
-    def grasps(self, input_grasps):
-        self._graps = input_grasps
+    @pick_grasps.setter
+    def pick_grasps(self, input_grasps):
+        self._pick_graps = input_grasps
+
+    @property
+    def place_grasps(self):
+        """obj_from_grasp_poses
+        """
+        return self._place_grasps
+
+    @place_grasps.setter
+    def place_grasps(self, input_grasps):
+        self._place_graps = input_grasps
 
     @property
     def initial_frame(self):
@@ -127,37 +139,12 @@ class UnitGeometry(object):
         except ImportError:
             return None
 
-    # @property
-    # def world_from_element_place_pose(self):
-    #     return self._world_from_element_place_pose
-
-    # @world_from_element_place_pose.setter
-    # def world_from_element_place_pose(self, pose):
-    #     self._world_from_element_place_pose = pose
-
-    # @property
-    # def world_from_element_pick_pose(self):
-    #     return self._world_from_element_pick_pose
-
-    # @world_from_element_pick_pose.setter
-    # def world_from_element_pick_pose(self, pose):
-    #     self._world_from_element_pick_pose = pose
-
-    # @property
-    # def obj_from_grasp_poses(self):
-    #     return self._obj_from_grasp_poses
-
-    # @obj_from_grasp_poses.setter
-    # def obj_from_grasp_poses(self, grasp_poses):
-    #     self._obj_from_grasp_poses = grasp_poses
-
     # --------------------------------------------------------------------------
     # attributes
     # --------------------------------------------------------------------------
 
     def centroid(self):
         raise NotImplementedError
-
 
     # --------------------------------------------------------------------------
     # utils
@@ -177,8 +164,10 @@ class UnitGeometry(object):
         scale_frame(self._initial_frame, scale)
         for gf in self._goal_frames:
             scale_frame(gf, scale)
-        for i in range(len(self._grasps)):
-            self._grasps[i].rescale(scale)
+        for i in range(len(self.pick_grasps)):
+            self.pick_grasps[i].rescale(scale)
+        for i in range(len(self.place_grasps)):
+            self.place_grasps[i].rescale(scale)
 
     # --------------------------------------------------------------------------
     # exporters
@@ -205,7 +194,8 @@ class UnitGeometry(object):
         data['parent_frame'] = self._parent_frame.to_data()
         data['initial_frame'] = self._initial_frame.to_data()
         data['goal_frames'] = [gf.to_data() for gf in self._goal_frames]
-        data['grasps'] = [g.to_data() for g in self._grasps]
+        data['pick_grasps'] = [g.to_data() for g in self.pick_grasps]
+        data['place_grasps'] = [g.to_data() for g in self.place_grasps]
 
         # TODO:
         # self._initial_supports = initial_supports
@@ -218,7 +208,8 @@ class UnitGeometry(object):
         for file_name in data['mesh_file_names']:
             if os.path.exists(file_name):
                 meshes.append(Mesh.from_obj(file_name))
-        grasps = [Grasp.from_data(g_data) for g_data in data['grasps']]
+        pick_grasps = [Grasp.from_data(g_data) for g_data in data['pick_grasps']]
+        place_grasps = [Grasp.from_data(g_data) for g_data in data['place_grasps']]
         return cls(data['name'], mesh=meshes,
                  initial_frame=Frame.from_data(data['initial_frame']), goal_frames=[Frame.from_data(gf_data) for gf_data in data['goal_frames']],
-                 grasps=grasps, parent_frame=Frame.from_data(data['parent_frame']))
+                 pick_grasps=pick_grasps, place_grasps=place_grasps, parent_frame=Frame.from_data(data['parent_frame']))

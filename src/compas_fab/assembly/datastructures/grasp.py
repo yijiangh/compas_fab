@@ -12,7 +12,8 @@ class Grasp(object):
         self._object_from_retreat_frame = retreat # compas Frame
 
     @classmethod
-    def from_frames(cls, object_index, grasp_id, world_from_obj, world_from_grasp, world_from_approach, world_from_retreat=None):
+    def from_frames(cls, object_index, grasp_id, world_from_obj,
+        world_from_grasp, world_from_approach, world_from_retreat=None):
         """construct a grasp instance from grasp, approach and retreat in the same coordinate system
         (does not need to be world)
 
