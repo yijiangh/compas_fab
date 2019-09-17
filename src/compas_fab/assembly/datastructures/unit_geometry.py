@@ -34,7 +34,7 @@ class UnitGeometry(object):
         # goal frames is a list to indicate symmetry in the unit geometry
         self._goal_frames = goal_frames or [Frame.worldXY()]
         self._pick_grasps = pick_grasps
-        self._place_grasps = pick_grasps
+        self._place_grasps = place_grasps
         self._initial_supports = initial_supports
         self._goal_supports = goal_supports
 
