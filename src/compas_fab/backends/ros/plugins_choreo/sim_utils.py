@@ -1,5 +1,5 @@
 from conrob_pybullet import joints_from_names, link_from_name, set_joint_positions, \
-    wait_for_duration, wait_for_user, create_attachment
+    wait_for_duration, wait_for_user, create_attachment, set_pose
 
 def display_trajectory_chunk(robot, ik_joint_names,
                              trajectory, \
@@ -23,15 +23,29 @@ def display_trajectory_chunk(robot, ik_joint_names,
 
 def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
                                     unit_geos, trajectories, \
+                                    element_seq=[],
+                                    from_seq_id=0, to_seq_id=None,
                                     ee_attachs=[],
-                                    cartesian_time_step=0.075, transition_time_step=0.1, step_sim=False, per_conf_step=False):
+                                    cartesian_time_step=0.075,
+                                    transition_time_step=0.1, step_sim=False, per_conf_step=False):
     # enable_gravity()
     ik_joints = joints_from_names(robot, ik_joint_names)
     end_effector_link = link_from_name(robot, ee_link_name)
+    element_seq = element_seq or list(len(unit_geos))
 
-    for seq_id, unit_picknplace in enumerate(trajectories):
-        handles = []
-        unit_geo = unit_geos[seq_id]
+    from_seq_id = from_seq_id or 0
+    to_seq_id = to_seq_id or len(element_seq)-1
+    assert 0 <= from_seq_id and from_seq_id < len(element_seq)
+    assert from_seq_id <= to_seq_id and to_seq_id < len(element_seq)
+
+    for seq_id in range(0, from_seq_id):
+        e_id = element_seq[seq_id]
+        for e_body in unit_geos[e_id].pybullet_bodies:
+            set_pose(e_body, unit_geos[e_id].goal_pb_pose)
+
+    for seq_id in range(from_seq_id, to_seq_id + 1):
+        unit_geo = unit_geos[element_seq[seq_id]]
+        unit_picknplace = trajectories[seq_id - from_seq_id]
 
         print('seq #{} : place 2 pick tranisiton'.format(seq_id))
         if 'place2pick' in unit_picknplace and unit_picknplace['place2pick']['points']:
@@ -124,7 +138,7 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
 
         if step_sim: wait_for_user()
 
-        if seq_id == len(trajectories)-1 and 'return2idle' in unit_picknplace:
+        if seq_id == to_seq_id and 'return2idle' in unit_picknplace:
             for conf in unit_picknplace['return2idle']['points']:
                 set_joint_positions(robot, ik_joints, conf['values'])
                 for ea in ee_attachs: ea.assign()
