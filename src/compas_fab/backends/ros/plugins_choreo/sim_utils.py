@@ -1,5 +1,5 @@
 from conrob_pybullet import joints_from_names, link_from_name, set_joint_positions, \
-    wait_for_duration, wait_for_user, create_attachment, set_pose
+    wait_for_duration, wait_for_user, create_attachment, set_pose, has_gui
 
 def display_trajectory_chunk(robot, ik_joint_names,
                              trajectory, \
@@ -43,8 +43,16 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
         for e_body in unit_geos[e_id].pybullet_bodies:
             set_pose(e_body, unit_geos[e_id].goal_pb_pose)
 
+    assert has_gui()
+    set_joint_positions(robot, ik_joints, trajectories[0]['place2pick']['points'][0]['values'])
+    for ea in ee_attachs: ea.assign()
+    wait_for_user()
+
     for seq_id in range(from_seq_id, to_seq_id + 1):
         unit_geo = unit_geos[element_seq[seq_id]]
+        if seq_id-from_seq_id > len(trajectories):
+            break
+
         unit_picknplace = trajectories[seq_id - from_seq_id]
 
         print('seq #{} : place 2 pick tranisiton'.format(seq_id))
@@ -138,11 +146,12 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
 
         if step_sim: wait_for_user()
 
-        if seq_id == to_seq_id and 'return2idle' in unit_picknplace:
-            for conf in unit_picknplace['return2idle']['points']:
-                set_joint_positions(robot, ik_joints, conf['values'])
-                for ea in ee_attachs: ea.assign()
-                if not per_conf_step:
-                    wait_for_duration(transition_time_step)
-                else:
-                    wait_for_user()
+        if seq_id == to_seq_id or seq_id-from_seq_id == len(trajectories) - 1:
+            if 'return2idle' in unit_picknplace:
+                for conf in unit_picknplace['return2idle']['points']:
+                    set_joint_positions(robot, ik_joints, conf['values'])
+                    for ea in ee_attachs: ea.assign()
+                    if not per_conf_step:
+                        wait_for_duration(transition_time_step)
+                    else:
+                        wait_for_user()
