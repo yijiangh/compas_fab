@@ -139,7 +139,7 @@ def Frame_from_pb_pose(pose):
     frame : compas Frame
 
     """
-    frame = frame.from_euler_angles(euler_from_quat(pose[1]))
+    frame = Frame.from_euler_angles(euler_from_quat(pose[1]))
     frame.point = pose[0]
     return frame
 
