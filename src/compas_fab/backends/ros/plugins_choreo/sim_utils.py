@@ -46,7 +46,7 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
     assert has_gui()
     set_joint_positions(robot, ik_joints, trajectories[0]['place2pick']['points'][0]['values'])
     for ea in ee_attachs: ea.assign()
-    wait_for_user()
+    # wait_for_user()
 
     for seq_id in range(from_seq_id, to_seq_id + 1):
         unit_geo = unit_geos[element_seq[seq_id]]
