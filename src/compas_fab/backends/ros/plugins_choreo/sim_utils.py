@@ -27,7 +27,7 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
                                     from_seq_id=0, to_seq_id=None,
                                     ee_attachs=[],
                                     cartesian_time_step=0.075,
-                                    transition_time_step=0.1, step_sim=False, per_conf_step=False):
+                                    transition_time_step=0.1, step_sim=False, per_conf_step=False, step_sim_time_gap=2):
     # enable_gravity()
     ik_joints = joints_from_names(robot, ik_joint_names)
     end_effector_link = link_from_name(robot, ee_link_name)
@@ -46,7 +46,10 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
     assert has_gui()
     set_joint_positions(robot, ik_joints, trajectories[0]['place2pick']['points'][0]['values'])
     for ea in ee_attachs: ea.assign()
-    # wait_for_user()
+    try:
+        wait_for_user()
+    except:
+        wait_for_duration(step_sim_time_gap)
 
     for seq_id in range(from_seq_id, to_seq_id + 1):
         unit_geo = unit_geos[element_seq[seq_id]]
@@ -68,7 +71,11 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
         else:
             print('seq #{} does not have place to pick transition plan found!'.format(seq_id))
 
-        if step_sim: wait_for_user()
+        if step_sim:
+            try:
+                wait_for_user()
+            except:
+                wait_for_duration(step_sim_time_gap)
 
         print('seq #{} : pick approach'.format(seq_id))
         # pick_approach
@@ -81,7 +88,11 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
             else:
                 wait_for_user()
 
-        if step_sim: wait_for_user()
+        if step_sim:
+            try:
+                wait_for_user()
+            except:
+                wait_for_duration(step_sim_time_gap)
 
         # pick attach
         attachs = []
@@ -100,7 +111,12 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
             else:
                 wait_for_user()
 
-        if step_sim: wait_for_user()
+        if step_sim:
+            try:
+                wait_for_user()
+            except:
+                wait_for_duration(step_sim_time_gap)
+
 
         print('seq #{} : pick 2 place tranisiton'.format(seq_id))
         # pick2place transition
@@ -116,7 +132,11 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
         else:
             print('seq #{} does not have pick to place transition plan found!'.format(seq_id))
 
-        if step_sim: wait_for_user()
+        if step_sim:
+            try:
+                wait_for_user()
+            except:
+                wait_for_duration(step_sim_time_gap)
 
         print('seq #{} : place approach'.format(seq_id))
         # place_approach
@@ -129,7 +149,11 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
             else:
                 wait_for_user()
 
-        if step_sim: wait_for_user()
+        if step_sim:
+            try:
+                wait_for_user()
+            except:
+                wait_for_duration(step_sim_time_gap)
 
         # place detach
         # remove_fixed_constraint(brick.body, robot, end_effector_link)
@@ -144,7 +168,11 @@ def display_picknplace_trajectories(robot, ik_joint_names, ee_link_name,
             else:
                 wait_for_user()
 
-        if step_sim: wait_for_user()
+        if step_sim:
+            try:
+                wait_for_user()
+            except:
+                wait_for_duration(step_sim_time_gap)
 
         if seq_id == to_seq_id or seq_id-from_seq_id == len(trajectories) - 1:
             if 'return2idle' in unit_picknplace:
