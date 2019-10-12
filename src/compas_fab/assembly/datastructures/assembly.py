@@ -121,6 +121,7 @@ class Assembly(object):
         unit_geometry : [type], optional
             [description], by default None
         """
+        # TODO: assign virtual id index here
         self._net.add_vertex(key=vj_instance.key, virtual_joint=vj_instance, tag='virtual_joint')
         for e_id in vj_instance.connected_element_ids:
             # assert(element_vert_key(e_id) in self._net.vertex)
@@ -217,22 +218,6 @@ class Assembly(object):
     def element_geometries(self):
         return {extract_element_vert_id(e_key) : unit_geo for e_key, unit_geo in self._element_geometries.items()}
 
-    def get_element_geometry_in_pick_pose(self, e_id):
-        """return shape geometries in pick pose"""
-        e = self.get_element(e_id)
-        assert(e.world_from_element_pick_pose != None, "pick pose not defined!")
-        world_pick_tf = Transformation.from_frame(e.world_from_element_pick_pose)
-        return [transform_cmesh(cm, world_pick_tf) \
-        for cm in self._element_geometries[element_vert_key(e_id)]]
-
-    def get_element_geometry_in_place_pose(self, e_id):
-        """return shape geometries in place pose"""
-        e = self.get_element(e_id)
-        assert(e.world_from_element_place_pose != None, "place pose not defined!")
-        world_place_tf = Transformation.from_frame(e.world_from_element_place_pose)
-        return [transform_cmesh(cm, world_place_tf) \
-        for cm in self._element_geometries[element_vert_key(e_id)]]
-
     # --------------
     # layer info query
     # --------------
@@ -251,56 +236,6 @@ class Assembly(object):
 
     def get_layers(self):
         return self._layer_element_ids.keys()
-
-    # --------------
-    # some built-in graph algorithm
-    # --------------
-
-    def dijkstra(self, src_e_id, sub_graph=None):
-        def min_distance(e_size, dist, visited_set):
-            # return -1 if all the unvisited vertices' dist = inf (disconnected)
-            min = 1e10
-            min_index = -1
-            for e_id in range(e_size):
-                if dist[e_id] < min and not visited_set[e_id]:
-                    min = dist[e_id]
-                    min_index = e_id
-            # assert(min_index > -1)
-            return min_index
-
-        if self.is_element_grounded(src_e_id):
-            return 0
-
-        e_size = self.get_size_of_elements()
-        dist = [1e10] * e_size
-        dist[src_e_id] = 0
-        visited_set = [False] * e_size
-
-        for k in range(e_size):
-            if sub_graph:
-                if k not in sub_graph:
-                    continue
-            e_id = min_distance(e_size, dist, visited_set)
-            if e_id == -1:
-                # all unvisited ones are inf distance (not connected)
-                break
-            visited_set[e_id] = True
-            nbhd_e_ids = set(self.get_element_neighbored_elements(e_id, index_only=True))
-            if sub_graph:
-                nbhd_e_ids = nbhd_e_ids.intersection(sub_graph)
-
-            for n_e_id in nbhd_e_ids:
-                if not visited_set[n_e_id] and dist[n_e_id] > dist[e_id] + 1:
-                    dist[n_e_id] = dist[e_id] + 1
-
-        # get smallest dist to the grounded elements
-        grounded_dist = [dist[e.key_id] for e in self.elements.values() if e.is_grounded]
-        return min(grounded_dist)
-
-    def compute_traversal_to_ground_dist(self, sub_graph=None):
-        considered_e_ids = self.elements.keys() if not sub_graph else sub_graph
-        for e_id in considered_e_ids:
-            self.get_element(e_id).to_ground_dist = self.dijkstra(e_id, sub_graph)
 
     # --------------
     # static obstacle getter / setter
@@ -350,7 +285,6 @@ class Assembly(object):
                 vj_data['unit_geometry'] = self._virtual_joint_geometries[vj_id].to_data(mesh_path)
             data['virtual_joints'].append(vj_data)
 
-        # TODO: for now, but these should be UnitGeometries as well
         data['static_obstacle_geometries'] = [so_ug.to_data(mesh_path) for so_ug in self.static_obstacle_geometries.values()]
 
         with open(json_file_path, 'w') as outfile:

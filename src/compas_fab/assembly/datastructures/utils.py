@@ -1,14 +1,20 @@
 from collections import OrderedDict
 from compas.geometry import Transformation, transform_points, cross_vectors
 
+
+# -------------------------
+# assembly network indexing
+# -------------------------
+
+
 ELEMENT_KEY_PREFIX = 'e'
 VIRTUAL_JOINT_KEY_PREFIX = 'vj'
 KEY_SEPARATOR = '_'
-
 STATIC_OBSTACLE_PREFIX = 'static_obstacle'
 
 def element_vert_key(id):
     return ELEMENT_KEY_PREFIX + KEY_SEPARATOR + str(id)
+
 
 def extract_element_vert_id(str_key):
     key_sep = str_key.split(KEY_SEPARATOR)
@@ -17,8 +23,10 @@ def extract_element_vert_id(str_key):
     else:
         return None
 
+
 def virtual_joint_key(id):
     return VIRTUAL_JOINT_KEY_PREFIX + KEY_SEPARATOR + str(id)
+
 
 def extract_virtual_joint_vert_id(str_key):
     key_sep = str_key.split(KEY_SEPARATOR)
@@ -27,12 +35,38 @@ def extract_virtual_joint_vert_id(str_key):
     else:
         return None
 
+
 def obj_name(obj_key, sub_mesh_id):
     return obj_key + '_' + str(sub_mesh_id) + '.obj'
+
+
+# --------------------------
+# graph transformation utils
+# --------------------------
+
+def element_neighbor_to_joint(element_neighbors):
+    """Convert element-to-element connectivity to joint connectivity
+
+    Parameters
+    ----------
+    element_neighbors : list of list of int-list
+
+    Return
+    ------
+    joints : dict
+        { joint id (int) : [connected element ids] }
+    """
+    joint_set = set()
+    for e_id, e_jts in enumerate(element_neighbors):
+        for jt in e_jts:
+            joint_set.add(frozenset(jt + [e_id]))
+    return [list(e_set) for e_set in list(joint_set)]
+
 
 # -----------------
 # json export utils
 # -----------------
+
 def cframe2json(cfr):
     """convert compas frame into a json dict
 
