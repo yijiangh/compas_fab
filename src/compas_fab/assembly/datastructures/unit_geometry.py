@@ -8,6 +8,9 @@ from .utils import obj_name
 from compas.geometry import Frame
 from compas.datastructures import Mesh
 
+__all__ = ['UnitGeometry']
+
+
 class UnitGeometry(object):
     """Unit geometry ...
 
@@ -209,6 +212,14 @@ class UnitGeometry(object):
         pick_grasps = [Grasp.from_data(g_data) for g_data in data['pick_grasps']]
         place_grasps = [Grasp.from_data(g_data) for g_data in data['place_grasps']]
         return cls(data['name'], meshes=meshes,
-                 initial_frames=[Frame.from_data(data['initial_frames'])],
+                 initial_frames=[Frame.from_data(in_data) for in_data in data['initial_frames']],
                  goal_frames=[Frame.from_data(gf_data) for gf_data in data['goal_frames']],
                  pick_grasps=pick_grasps, place_grasps=place_grasps, parent_frame=Frame.from_data(data['parent_frame']))
+
+    # --------------
+    # repr
+    # --------------
+    def __repr__(self):
+       return 'UG: #mesh: {}, #body: {}, #init_frame: {}, #goal_frame: {}, #pick_grasp: {}, #place_grasp: {}'.format( \
+           len(self.meshes), len(self.pybullet_bodies),
+           len(self.initial_frames), len(self.goal_frames), len(self.pick_grasps), len(self.place_grasps))

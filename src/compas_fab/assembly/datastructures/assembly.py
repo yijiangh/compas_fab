@@ -38,6 +38,9 @@ class Assembly(object):
             refer to a phyiscal joint. For example in the case of compression-only
             blocks, the virtual joint models contact information between two blocks,
             where no real joint exists between these two blocks.
+
+    TODO: safeguarding missing key?
+          response if init vj before elements?
     """
 
     __module__ = 'compas_assembly.datastructures'
@@ -45,8 +48,6 @@ class Assembly(object):
     def __init__(self, elements=None, attributes=None):
         super(Assembly, self).__init__()
         self._net = Network()
-        self._element_geometries = {} # object frame moved to world frame
-        self._virtual_joint_geometries = {}
         self._static_obstacle_geometries = {}
         self._num_of_elements = 0
         self._num_of_virtual_joints = 0
@@ -63,18 +64,15 @@ class Assembly(object):
     # add / get functions for element(s), virtual joint(s)
     # --------------
 
-    def add_element(self, element_instance, unit_geometry):
+    def add_element(self, element_instance):
         """[summary]
         Parameters
         ----------
         element_instance : compas.assembly.datastructures.Element
             [description]
-        unit_geometry : compas.assembly.datastructures.UnitGeometry
-            [description]
         """
         # unit geometry's object frame transformed to origin
         self._net.add_vertex(key=element_instance.key, element=element_instance, tag='element')
-        self._element_geometries[element_instance.key] = unit_geometry
 
         if element_instance.layer_id in self._layer_element_ids.keys():
             self._layer_element_ids[element_instance.layer_id].append(element_instance.key)
@@ -111,23 +109,19 @@ class Assembly(object):
                 e_dict[extract_element_vert_id(v_key)] = self.get_element(v_key)
         return e_dict
 
-    def add_virtual_joint(self, vj_instance, unit_geometry=None):
+    def add_virtual_joint(self, vj_instance):
         """
         Network edges are added here.
         Parameters
         ----------
         vj_instance : compas.assembly.datastructures.VirtualJoint
             [description]
-        unit_geometry : [type], optional
-            [description], by default None
         """
         # TODO: assign virtual id index here
         self._net.add_vertex(key=vj_instance.key, virtual_joint=vj_instance, tag='virtual_joint')
         for e_id in vj_instance.connected_element_ids:
             # assert(element_vert_key(e_id) in self._net.vertex)
             self._net.add_edge(element_vert_key(e_id), vj_instance.key)
-        if unit_geometry:
-            self._virtual_joint_geometries[virtual_joint_key(id)] = unit_geometry
         self._num_of_virtual_joints += 1
 
     def get_virtual_joint(self, vj_id):
@@ -164,39 +158,44 @@ class Assembly(object):
     # Neighbor / connectivity query
     # --------------
 
-    def get_element_neighbored_virtual_joints(self, e_id):
+    def e_neighbor_vj(self, e_id, index_only=False):
         nghb_keys = self._net.vertex_neighbors(element_vert_key(e_id))
-        return [self._net.get_vertex_attribute(key, 'virtual_joint') for key in nghb_keys if extract_virtual_joint_vert_id(key) is not None]
+        if index_only:
+            return [extract_virtual_joint_vert_id(vj_key) for vj_key in nghb_keys if extract_virtual_joint_vert_id(vj_key) is not None]
+        else:
+            return [self._net.get_vertex_attribute(key, 'virtual_joint') for key in nghb_keys if extract_virtual_joint_vert_id(key) is not None]
 
-    def get_element_neighbored_elements(self, e_id, index_only=False):
-        nghb_keys = self._net.vertex_neighborhood(element_vert_key(e_id), ring=1)
+    def e_neighbor_e(self, e_id, index_only=False):
+        nghb_keys = self._net.vertex_neighborhood(element_vert_key(e_id), ring=2)
         if index_only:
             return [extract_element_vert_id(key) for key in nghb_keys if extract_element_vert_id(key) is not None]
-        return [self._net.get_vertex_attribute(key, 'elements') for key in nghb_keys if extract_element_vert_id(key) is not None]
+        else:
+            return [self._net.get_vertex_attribute(key, 'element') for key in nghb_keys if extract_element_vert_id(key) is not None]
 
-    def get_virtual_joint_neighbored_elements(self, vj_id):
+    def vj_neighbor_e(self, vj_id, index_only=False):
         nghb_keys = self._net.vertex_neighbors(virtual_joint_key(vj_id))
-        return [self._net.get_vertex_attribute(key, 'virtual_joint') for key in nghb_keys if extract_element_vert_id(key) is not None]
+        if index_only:
+            return [extract_element_vert_id(key) for key in nghb_keys if extract_element_vert_id(key) is not None]
+        else:
+            return [self._net.get_vertex_attribute(key, 'element') for key in nghb_keys if extract_element_vert_id(key) is not None]
 
-    def get_element_shared_virtual_joints(self, e1_id, e2_id):
-        """get virtual joint shared by the two input elements
-        Parameters
-        ----------
-        e1_id : int
-            [description]
-        e2_id : int
-            [description]
-        Returns
-        -------
-        VirtualJoint
-            [description]
-        """
-        e1_nghb_keys = self._net.vertex_neighbors(element_vert_key(e1_id))
-        e2_nghb_keys = self._net.vertex_neighbors(element_vert_key(e2_id))
-        shared_keys = set(e1_nghb_keys)
-        shared_keys.intersection_update(e2_nghb_keys)
-        return [self._net.get_vertex_attribute(key, 'virtual_joint') \
-            for key in list(shared_keys) if extract_virtual_joint_vert_id(key) is not None]
+    def vj_neighbor_vj(self, vj_id, index_only=False):
+        nghb_keys = self._net.vertex_neighborhood(virtual_joint_key(vj_id), ring=2)
+        if index_only:
+            return [extract_virtual_joint_vert_id(key) for key in nghb_keys if extract_virtual_joint_vert_id(key) is not None]
+        else:
+            return [self._net.get_vertex_attribute(key, 'virtual_joint') for key in nghb_keys if extract_virtual_joint_vert_id(key) is not None]
+
+    # def elements_shared_virtual_joints(self, e_ids, index_only=False):
+    #     shared_keys = set()
+    #     for e_id in e_ids:
+    #         shared_keys.update()
+    #     shared_keys.intersection_update(e2_nghb_keys)
+    #     if index_only:
+    #         return list(shared_keys)
+    #     else:
+    #         return [self._net.get_vertex_attribute(key, 'virtual_joint') \
+    #             for key in list(shared_keys) if extract_virtual_joint_vert_id(key) is not None]
 
     # TODO: get_virtual_joint_shared_elements
 
@@ -253,7 +252,8 @@ class Assembly(object):
     # exporters
     # --------------
 
-    def save_assembly_to_json(self, json_path, pkg_name='', assembly_type='', model_type='', unit='', mesh_path=''):
+    def save_assembly_to_json(self, json_path, pkg_name='', assembly_type='', model_type='', unit='',
+        mesh_path='', json_indent=None):
         if not os.path.isdir(json_path):
             os.mkdir(json_path)
         json_file_path = os.path.join(json_path, pkg_name + '.json')
@@ -263,7 +263,6 @@ class Assembly(object):
         data['assembly_type'] = assembly_type
         data['model_type'] = model_type
         data['unit'] = unit
-        # TODO: sanity check: vj geo + element geo = given seq
 
         data['element_number'] = self.get_size_of_elements()
         data['virtual_joint_number'] = self.get_size_of_virtual_joints()
@@ -272,29 +271,26 @@ class Assembly(object):
         data['elements'] = []
         for e_id, e in self.elements.items():
             e_data = OrderedDict()
-            e_data['element'] = e.to_data()
-            e_data['unit_geometry'] = self.element_geometries[e_id].to_data(mesh_path)
+            e_data['element'] = e.to_data(mesh_path)
             data['elements'].append(e_data)
 
         # virtual joint data
         data['virtual_joints'] = []
         for vj_id, vj in self.virtual_joints.items():
             vj_data = OrderedDict()
-            vj_data['virtual_joint'] = vj.to_data()
-            if vj_id in self._virtual_joint_geometries:
-                vj_data['unit_geometry'] = self._virtual_joint_geometries[vj_id].to_data(mesh_path)
+            vj_data['virtual_joint'] = vj.to_data(mesh_path)
             data['virtual_joints'].append(vj_data)
 
         data['static_obstacle_geometries'] = [so_ug.to_data(mesh_path) for so_ug in self.static_obstacle_geometries.values()]
 
         with open(json_file_path, 'w') as outfile:
-            json.dump(data, outfile, indent=4)
+            json.dump(data, outfile, indent=json_indent)
 
     def save_assembly_to_urdf(self, urdf_path):
         raise NotImplementedError
 
     def to_package(self, save_path, pkg_name, \
-        assembly_type="", model_type="", unit="", given_seq=None):
+        assembly_type="", model_type="", unit="", json_indent=None):
         root_path = os.path.join(save_path, pkg_name)
         if not os.path.isdir(root_path):
             os.mkdir(root_path)
@@ -308,7 +304,7 @@ class Assembly(object):
                 os.mkdir(p)
 
         # generate json
-        self.save_assembly_to_json(json_path, pkg_name, assembly_type, model_type, unit, mesh_path)
+        self.save_assembly_to_json(json_path, pkg_name, assembly_type, model_type, unit, mesh_path, json_indent)
 
         # TODO: genereate static collision objects urdf
         # self.generate_env_collision_objects_urdf(collision_objs, urdf_path)
@@ -318,31 +314,42 @@ class Assembly(object):
         assembly = cls()
         for e_data in data['elements']:
             e = Element.from_data(e_data['element'])
-            assembly.add_element(e, UnitGeometry.from_data(e_data['unit_geometry']))
+            assembly.add_element(e)
 
         # virtual joints
         for vj_data in data['virtual_joints']:
             vj = VirtualJoint.from_data(vj_data['virtual_joint'])
-            assembly.add_virtual_joint(vj, UnitGeometry.from_data(e_data['unit_geometry']) if 'unit_geometry' in vj_data else None)
+            assembly.add_virtual_joint(vj)
 
         # static obstacles
         assembly.static_obstacle_geometries = [UnitGeometry.from_data(ug_data) for ug_data in data['static_obstacle_geometries']]
-
         return assembly
 
     def __repr__(self):
         return 'assembly_net: #virual joint:{0}, #element:{1}'.format(self.get_size_of_virtual_joints(), self.get_size_of_elements())
 
-    def print_neighbors(self):
+    def print_neighbors(self, index_only=True):
         """debug function
         """
+        print('#'*10)
         for e in self.elements.values():
+            print('*'*6)
+            c_e_ids = set(self.get_element_neighbored_elements(e.key_id, index_only=index_only))
+            c_vj_ids = self.get_element_neighbored_virtual_joints(e.key_id, index_only=index_only)
             print('grounded:{}'.format(e.is_grounded))
-            print('neighbor e of e#{0}: {1}'.format(e.key_id, self.get_element_neighbored_elements(e.key_id)))
-            print('neighbor vjs of e#{0}: {1}'.format(e.key_id, self.get_element_neighbored_virtual_joints(e.key_id)))
+            print('e#{0} neighbor e: {1}'.format(e.key_id, c_e_ids))
+            print('e#{0} neighbor vj: {1}'.format(e.key_id, c_vj_ids))
+            vj_e_ids = set()
+            for vj_id in c_vj_ids:
+                vj_e_ids.update(self.get_virtual_joint_neighbored_elements(vj_id, index_only=True))
+            print('vj ring neighbor e: {}'.format(vj_e_ids))
+            assert c_e_ids == vj_e_ids
 
+        print('#'*10)
         for vj in self.virtual_joints.values():
-            print('neighbor e of v{0}: {1}'.format(vj.key_id, self.get_virtual_joint_neighbored_elements(vj.key_id)))
+
+            print('*'*6)
+            print('neighbor e of vj#{0}: {1}'.format(vj.key_id, self.get_virtual_joint_neighbored_elements(vj.key_id, index_only=index_only)))
 
 if __name__ == "__main__":
     # Rhino example
