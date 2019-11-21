@@ -33,6 +33,8 @@ class CollisionMesh(object):
     --------
     >>> mesh = Mesh.from_stl(compas_fab.get('planning_scene/floor.stl'))
     >>> cm = CollisionMesh(mesh, 'floor')
+    >>> cm.frame
+    Frame(Point(0.000, 0.000, 0.000), Vector(1.000, 0.000, 0.000), Vector(0.000, 1.000, 0.000))
     """
 
     def __init__(self, mesh, id, frame=None, root_name=None):
@@ -131,7 +133,7 @@ class PlanningScene(object):
         >>> scene = PlanningScene(robot)
         >>> mesh = Mesh.from_stl(compas_fab.get('planning_scene/floor.stl'))
         >>> cm = CollisionMesh(mesh, 'floor')
-        >>> scene.add_collision_mesh(cm)
+        >>> scene.add_collision_mesh(cm)                   # doctest: +SKIP
         """
         self.ensure_client()
 
@@ -158,7 +160,7 @@ class PlanningScene(object):
         Examples
         --------
         >>> scene = PlanningScene(robot)
-        >>> scene.remove_collision_mesh('floor')
+        >>> scene.remove_collision_mesh('floor')           # doctest: +SKIP
         """
         self.ensure_client()
         self.robot.client.remove_collision_mesh(id)
@@ -185,7 +187,7 @@ class PlanningScene(object):
         >>> scene = PlanningScene(robot)
         >>> mesh = Mesh.from_stl(compas_fab.get('planning_scene/floor.stl'))
         >>> cm = CollisionMesh(mesh, 'floor')
-        >>> scene.append_collision_mesh(cm)
+        >>> scene.append_collision_mesh(cm)                # doctest: +SKIP
         """
         self.ensure_client()
 
@@ -219,7 +221,7 @@ class PlanningScene(object):
         >>> ee_link_name = 'ee_link'
         >>> touch_links = ['wrist_3_link', 'ee_link']
         >>> acm = AttachedCollisionMesh(cm, ee_link_name, touch_links)
-        >>> scene.add_attached_collision_mesh(acm)
+        >>> scene.add_attached_collision_mesh(acm)         # doctest: +SKIP
         """
         self.ensure_client()
 
@@ -244,7 +246,7 @@ class PlanningScene(object):
         Examples
         --------
         >>> scene = PlanningScene(robot)
-        >>> scene.remove_attached_collision_mesh('tip')
+        >>> scene.remove_attached_collision_mesh('tip')   # doctest: +SKIP
         """
         self.ensure_client()
         self.client.remove_attached_collision_mesh(id)
@@ -263,6 +265,10 @@ class PlanningScene(object):
             The planning group to which we want to attach the mesh to. Defaults
             to the robot's main planning group.
 
+        Returns
+        -------
+        None
+
         Examples
         --------
         >>> scene = PlanningScene(robot)
@@ -270,6 +276,19 @@ class PlanningScene(object):
         >>> cm = CollisionMesh(mesh, 'tip')
         >>> group = robot.main_group_name
         >>> scene.attach_collision_mesh_to_robot_end_effector(cm, group=group)
+
+        >>> # wait for it to be attached
+        >>> time.sleep(1)
+
+        >>> # wait for it to be removed
+        >>> scene.remove_attached_collision_mesh('tip')
+        >>> time.sleep(1)
+
+        >>> # check if it's really gone
+        >>> planning_scene = robot.client.get_planning_scene()
+        >>> objects = [c.object['id'] for c in planning_scene.robot_state.attached_collision_objects]
+        >>> 'tip' in objects
+        False
         """
         self.ensure_client()
 
@@ -282,17 +301,16 @@ class PlanningScene(object):
         acm = AttachedCollisionMesh(collision_mesh, ee_link_name, touch_links)
         self.add_attached_collision_mesh(acm)
 
+    def add_attached_tool(self):
+        """Adds the robot's attached tool to the planning scene if set.
+        """
+        self.ensure_client()
+        if self.robot.attached_tool:
+            self.add_attached_collision_mesh(self.robot.attached_tool.attached_collision_mesh)
 
-if __name__ == "__main__":
-    import doctest
-    import time
-    from compas.datastructures import Mesh
-    import compas_fab
-    from compas_fab.robots.ur5 import Robot
-    from compas_fab.backends import RosClient
-    client = RosClient()
-    client.run()
-    robot = Robot(client)
-    doctest.testmod(globs=globals())
-    client.close()
-    client.terminate()
+    def remove_attached_tool(self):
+        """Removes the robot's attached tool from the planning scene.
+        """
+        self.ensure_client()
+        if self.robot.attached_tool:
+            self.remove_attached_collision_mesh(self.robot.attached_tool.name)

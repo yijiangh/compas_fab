@@ -22,34 +22,31 @@ class Configuration(object):
 
     Examples
     --------
-    >>> from math import pi
-    >>> from compas_fab.robots import Configuration
-    >>> config = Configuration.from_revolute_values([pi/2, 0., 0.])
+    >>> config = Configuration.from_revolute_values([math.pi/2, 0., 0.])
     >>> config.values
     [1.5707963267948966, 0.0, 0.0]
 
-    >>> from math import pi
     >>> from compas_fab.robots import Configuration
-    >>> config = Configuration.from_prismatic_and_revolute_values([8.312], [pi/2, 0., 0., 0., 2*pi, 0.8])
+    >>> config = Configuration.from_prismatic_and_revolute_values([8.312], [math.pi/2, 0., 0., 0., 2*math.pi, 0.8])
     >>> str(config)
-    'Configuration(8.312, 1.571, 0.000, 0.000, 0.000, 6.283, 0.800)'
+    'Configuration((8.312, 1.571, 0.000, 0.000, 0.000, 6.283, 0.800), (2, 0, 0, 0, 0, 0, 0))'
 
-    >>> from math import pi
     >>> from compas_fab.robots import Configuration
     >>> from compas.robots import Joint
-    >>> config = Configuration([pi/2, 3., 0.1], [Joint.REVOLUTE, Joint.PRISMATIC, Joint.PLANAR])
+    >>> config = Configuration([math.pi/2, 3., 0.1], [Joint.REVOLUTE, Joint.PRISMATIC, Joint.PLANAR])
     >>> str(config)
-    'Configuration(1.571, 3.000, 0.100)'
+    'Configuration((1.571, 3.000, 0.100), (0, 2, 5))'
 
     """
 
-    def __init__(self, values=[], types=[]):
-        if len(values) != len(types):
-            raise ValueError("%d values must have %d types, but %d given." % (
-                len(values), len(values), len(types)))
-        self.values = list(values)
-        self.types = list(types)
+    def __init__(self, values=None, types=None):
         self._precision = '3f'
+        self.values = list(values or [])
+        self.types = list(types or [])
+
+        if len(self.values) != len(self.types):
+            raise ValueError("%d values must have %d types, but %d given." % (
+                len(self.values), len(self.values), len(self.types)))
 
     def __str__(self):
         vs = '%.' + self._precision
@@ -174,29 +171,3 @@ class Configuration(object):
             values_scaled.append(value)
 
         self.values = values_scaled
-
-
-if __name__ == "__main__":
-    from math import pi
-    from math import radians
-
-    q = [4.5, 1.7, 0.5, 2.1, 0.1, 2.1]
-    configuration = Configuration.from_revolute_values(q)
-    print(configuration)
-
-    config = Configuration.from_revolute_values([pi/2, 0., 0.])
-    print(config.values)
-
-    config = Configuration.from_prismatic_and_revolute_values(
-        [8.312], [pi/2, 0., 0., 0., 2*pi, 0.8])
-    print(str(config))
-
-    config = Configuration(
-        [pi/2, 3., 0.1], [Joint.REVOLUTE, Joint.PRISMATIC, Joint.PLANAR])
-    print(str(config))
-
-    config = Configuration.from_prismatic_and_revolute_values(
-        [2., 3., 1.33], map(radians, [90, 0, 0, 20]))
-    print(str(config))
-    print(config.revolute_values)
-    print(config.prismatic_values)

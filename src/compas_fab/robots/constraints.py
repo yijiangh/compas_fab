@@ -46,6 +46,8 @@ class BoundingVolume(object):
         >>> from compas_fab.robots import BoundingVolume
         >>> box = Box(Frame.worldXY(), 1., 1., 1.)
         >>> bv = BoundingVolume.from_box(box)
+        >>> bv.type
+        1
         """
         return cls(cls.BOX, box)
 
@@ -63,6 +65,8 @@ class BoundingVolume(object):
         >>> from compas_fab.robots import BoundingVolume
         >>> sphere = Sphere((1., 1., 1.), 5.)
         >>> bv = BoundingVolume.from_sphere(sphere)
+        >>> bv.type
+        2
         """
         return cls(cls.SPHERE, sphere)
 
@@ -81,6 +85,8 @@ class BoundingVolume(object):
         >>> from compas_fab.robots import BoundingVolume
         >>> mesh = Mesh.from_obj(compas.get('faces.obj'))
         >>> bv = BoundingVolume.from_mesh(Mesh)
+        >>> bv.type
+        3
         """
         return cls(cls.MESH, mesh)
 
@@ -220,7 +226,14 @@ class OrientationConstraint(Constraint):
     def transform(self, transformation):
         R = Rotation.from_quaternion(self.quaternion)
         R = transformation * R
-        self.quaternion = R.rotation.quaternion
+
+        # Due to a bug on COMPAS 0.10.0
+        # (Fixed on https://github.com/compas-dev/compas/pull/378 but not released atm)
+        # we work around the retrival of the rotation component of R and instead decompose and get it
+        _, _, r, _, _ = R.decomposed()
+        self.quaternion = r.quaternion
+        # After that bug fix is released, the previous two lines should be changed to:
+        # self.quaternion = R.rotation.quaternion
 
     def __repr__(self):
         return "OrientationConstraint('{0}', {1}, {2}, {3})".format(self.link_name, self.quaternion, self.tolerances, self.weight)
@@ -312,10 +325,3 @@ class PositionConstraint(Constraint):
     def copy(self):
         cls = type(self)
         return cls(self.link_name, self.bounding_volume.copy(), self.weight)
-
-
-if __name__ == "__main__":
-
-    import doctest
-    doctest.testmod()
-    # print([name for name in dir() if not name.startswith('_')])
