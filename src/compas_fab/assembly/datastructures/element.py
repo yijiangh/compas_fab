@@ -15,11 +15,9 @@ class Element(object):
 
     __module__ = 'compas_fab.assembly.datastructures'
 
-    def __init__(self, id, layer_id=0, is_grounded=False, unit_geometries=[]):
-        super(Element, self).__init__()
+    def __init__(self, id, layer_id=0, is_grounded=False, unit_geometries=None):
         self._key = element_vert_key(id)
-        self._unit_geometries = unit_geometries
-
+        self._unit_geometries = unit_geometries or []
         self._layer_id = layer_id
         self.is_grounded = is_grounded
         self.to_ground_dist = 1e10

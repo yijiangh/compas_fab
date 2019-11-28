@@ -3,8 +3,11 @@ or a determinate mesh object
 
 """
 import os
-from .grasp import Grasp
-from .utils import obj_name
+import random
+import warnings
+
+from compas_fab.assembly.datastructures.grasp import Grasp
+from compas_fab.assembly.datastructures.utils import obj_name
 from compas.geometry import Frame
 from compas.datastructures import Mesh
 
@@ -15,21 +18,23 @@ class UnitGeometry(object):
     """Unit geometry ...
 
     """
-    def __init__(self, name='', meshes=[], bodies=[],
-                 initial_frames=[], goal_frames=[],
-                 pick_grasps=[], place_grasps=[],
-                 initial_supports=[], goal_supports=[], parent_frame=None):
+    def __init__(self, name='', meshes=None, bodies=None,
+                 initial_frames=None, goal_frames=None,
+                 pick_grasps=None, place_grasps=None,
+                 initial_supports=None, goal_supports=None, parent_frame=None):
         # mesh is transformed to the world origin, on the user side
         self._name = name
-        self._meshes = meshes
-        self._bodies = bodies
+        self._meshes = meshes or []
+        self._bodies = bodies or []
         self._parent_frame =  parent_frame or Frame.worldXY()
         self._initial_frames = initial_frames or [Frame.worldXY()]
+        self._initial_pb_poses = []
         self._goal_frames = goal_frames or [Frame.worldXY()]
-        self._pick_grasps = pick_grasps
-        self._place_grasps = place_grasps
-        self._initial_supports = initial_supports
-        self._goal_supports = goal_supports
+        self._goal_pb_poses = []
+        self._pick_grasps = pick_grasps or []
+        self._place_grasps = place_grasps or []
+        self._initial_supports = initial_supports or []
+        self._goal_supports = goal_supports or []
 
     @property
     def name(self):
@@ -44,27 +49,34 @@ class UnitGeometry(object):
         return self._parent_frame
 
     @property
+    def initial_frame(self):
+        """randomly chose one initial pose
+        """
+        return random.choice(self.initial_frames)
+
+    @property
     def initial_frames(self):
         return self._initial_frames
 
     @initial_frames.setter
-    def initial_frames(self, frames):
-        assert isinstance(frames, list)
-        self._initial_frames = frames
+    def initial_frames(self, frames_):
+        assert isinstance(frames_, list)
+        self._initial_frames = frames_
 
-    @property
-    def initial_pb_poses(self):
-        try:
-            from compas_fab.backends.pybullet import pb_pose_from_Frame
-            return pb_pose_from_Frame(self._initial_frames)
-        except ImportError:
-            return None
+    def get_initial_frames(self, get_pb_pose=False):
+        if not get_pb_pose:
+            return self.initial_frames
+        else:
+            if len(self._initial_pb_poses) == 0:
+                from compas_fab.backends.pybullet import pb_pose_from_Frame
+                self._initial_pb_poses = [pb_pose_from_Frame(fr) for fr in self.initial_frames]
+            return self._initial_pb_poses
 
     @property
     def goal_frame(self):
-        """world_from_element_place pose
+        """randomly chose one goal pose
         """
-        return self._goal_frames[0]
+        return random.choice(self.goal_frames)
 
     @property
     def goal_frames(self):
@@ -77,21 +89,14 @@ class UnitGeometry(object):
         assert isinstance(frames, list)
         self._goal_frames = frames
 
-    @property
-    def goal_pb_pose(self):
-        try:
-            from compas_fab.backends.pybullet import pb_pose_from_Frame
-            return pb_pose_from_Frame(self.goal_frame)
-        except ImportError:
-            return None
-
-    @property
-    def goal_pb_poses(self):
-        try:
-            from compas_fab.backends.pybullet import pb_pose_from_Frame
-            return [pb_pose_from_Frame(gf) for gf in self.goal_frames]
-        except ImportError:
-            return None
+    def get_goal_frames(self, get_pb_pose=False):
+        if not get_pb_pose:
+            return self.goal_frames
+        else:
+            if len(self._goal_pb_poses) == 0:
+                from compas_fab.backends.pybullet import pb_pose_from_Frame
+                self._goal_pb_poses = [pb_pose_from_Frame(fr) for fr in self.goal_frames]
+            return self._goal_pb_poses
 
     # --------------------------------------------------------------------------
     # geometry mesh/body properties
@@ -99,22 +104,37 @@ class UnitGeometry(object):
 
     @property
     def meshes(self):
-        # TODO: if no mesh is stored, but pybullet body is assigned
-        # create from pybullet body
+        if not self._meshes:
+            warnings.warn('no mesh is specified in the unit_geometry.')
         return self._meshes
 
     @meshes.setter
-    def meshes(self, input_meshes):
-        self._meshes = input_meshes
+    def meshes(self, meshes_):
+        self._meshes = meshes_
+        self._bodies = [] # reset bodies
 
     @property
     def pybullet_bodies(self):
-        # TODO: if no body is stored, create from compas mesh
+        if not self._bodies:
+            # warnings.warn('no pybullet bodies is specified in the unit_geometry, generating from meshes')
+            from compas_fab.backends.pybullet import convert_mesh_to_pybullet_body
+            for m in self.meshes:
+                self._bodies.append(convert_mesh_to_pybullet_body(m))
         return self._bodies
 
-    @pybullet_bodies.setter
-    def pybullet_bodies(self, body):
-        self._bodies = body
+    def clone_pybullet_bodies(self):
+        # TODO: this is temporal, workaround for `clone_body` method's bug for obj-created body
+        from compas_fab.backends.pybullet import convert_mesh_to_pybullet_body
+        cloned_bodies = []
+        for m in self.meshes:
+            cloned_bodies.append(convert_mesh_to_pybullet_body(m))
+        return cloned_bodies
+
+    # ! To make sure mesh-pb body correspondance, we only allow meshes input to specify geometries
+    # @pybullet_bodies.setter
+    # def pybullet_bodies(self, bodies_):
+    #     assert isinstance(bodies_, list)
+    #     self._bodies = bodies_
 
     # --------------------------------------------------------------------------
     # Grasp properties
@@ -162,7 +182,8 @@ class UnitGeometry(object):
         for i in range(len(self._meshes)):
             scale_mesh(self.meshes[i], scale)
         scale_frame(self._parent_frame, scale)
-        scale_frame(self._initial_frames, scale)
+        for gf in self._initial_frames:
+            scale_frame(gf, scale)
         for gf in self._goal_frames:
             scale_frame(gf, scale)
         for i in range(len(self.pick_grasps)):
@@ -176,6 +197,8 @@ class UnitGeometry(object):
 
     def to_objs(self, mesh_path):
         file_names = []
+        if not mesh_path:
+            return file_names
         for sub_mesh_id, cm in enumerate(self.meshes):
             if os.path.exists(mesh_path):
                 file_name = os.path.join(mesh_path, obj_name(self.name, sub_mesh_id))
@@ -220,6 +243,6 @@ class UnitGeometry(object):
     # repr
     # --------------
     def __repr__(self):
-       return 'UG: #mesh: {}, #body: {}, #init_frame: {}, #goal_frame: {}, #pick_grasp: {}, #place_grasp: {}'.format( \
-           len(self.meshes), len(self.pybullet_bodies),
+       return 'UG {}: #mesh: {}, #body: {}, #init_frame: {}, #goal_frame: {}, #pick_grasp: {}, #place_grasp: {}'.format( \
+           self.name, len(self.meshes), len(self.pybullet_bodies),
            len(self.initial_frames), len(self.goal_frames), len(self.pick_grasps), len(self.place_grasps))

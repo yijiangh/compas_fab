@@ -2,7 +2,6 @@ from compas.geometry import Transformation, Frame
 from compas.geometry import distance_point_point
 
 
-# TODO: abstract class for representing robotic primitives
 class Grasp(object):
     def __init__(self, object_index=None, grasp_id=None, approach=None, attach=None, retreat=None):
         self._object_index = object_index # brick index
@@ -10,6 +9,10 @@ class Grasp(object):
         self._object_from_approach_frame = approach # compas Frame
         self._object_from_attach_frame = attach # compas Frame
         self._object_from_retreat_frame = retreat # compas Frame
+
+        self._object_from_approach_pb_pose = None # compas Frame
+        self._object_from_attach_pb_pose = None # compas Frame
+        self._object_from_retreat_pb_pose = None # compas Frame
 
     @classmethod
     def from_frames(cls, object_index, grasp_id, world_from_obj,
@@ -37,11 +40,11 @@ class Grasp(object):
         world_from_retreat_tf = Transformation.from_frame(world_from_retreat)
 
         object_from_approach_frame = Frame.from_transformation(\
-            Transformation.concatenate(world_from_obj_tf.inverse(), world_from_approach_tf))
+            Transformation.concatenated(world_from_obj_tf.inverse(), world_from_approach_tf))
         object_from_grasp_frame = Frame.from_transformation(\
-            Transformation.concatenate(world_from_obj_tf.inverse(), world_from_grasp_tf))
+            Transformation.concatenated(world_from_obj_tf.inverse(), world_from_grasp_tf))
         object_from_retreat_frame = Frame.from_transformation(\
-            Transformation.concatenate(world_from_obj_tf.inverse(), world_from_retreat_tf))
+            Transformation.concatenated(world_from_obj_tf.inverse(), world_from_retreat_tf))
         return cls(object_index, grasp_id, object_from_approach_frame, object_from_grasp_frame, object_from_retreat_frame)
 
     # --------------
@@ -68,59 +71,36 @@ class Grasp(object):
     # pybullet pose conversion
     # --------------
 
-    @property
-    def object_from_approach_pb_pose(self):
-        try:
-            from compas_fab.backends.pybullet import pb_pose_from_Frame
-            return pb_pose_from_Frame(self._object_from_approach_frame)
-        except ImportError:
-            return None
+    def get_object_from_approach_frame(self, get_pb_pose=False):
+        if get_pb_pose:
+            if not self._object_from_approach_pb_pose:
+                from compas_fab.backends.pybullet import pb_pose_from_Frame
+                self._object_from_approach_pb_pose = pb_pose_from_Frame(self._object_from_approach_frame)
+            return self._object_from_approach_pb_pose
+        else:
+            return self._object_from_attach_frame
 
-    @property
-    def object_from_attach_pb_pose(self):
-        try:
-            from compas_fab.backends.pybullet import pb_pose_from_Frame
-            return pb_pose_from_Frame(self._object_from_attach_frame)
-        except ImportError:
-            return None
+    def get_object_from_attach_frame(self, get_pb_pose=False):
+        if get_pb_pose:
+            if not self._object_from_attach_pb_pose:
+                from compas_fab.backends.pybullet import pb_pose_from_Frame
+                self._object_from_attach_pb_pose = pb_pose_from_Frame(self._object_from_attach_frame)
+            return self._object_from_attach_pb_pose
+        else:
+            return self._object_from_attach_frame
 
-    @property
-    def object_from_retreat_pb_pose(self):
-        try:
-            from compas_fab.backends.pybullet import pb_pose_from_Frame
-            return pb_pose_from_Frame(self._object_from_retreat_frame)
-        except ImportError:
-            return None
+    def get_object_from_retreat_frame(self, get_pb_pose=False):
+        if get_pb_pose:
+            if not self._object_from_retreat_pb_pose:
+                from compas_fab.backends.pybullet import pb_pose_from_Frame
+                self._object_from_retreat_pb_pose = pb_pose_from_Frame(self._object_from_retreat_frame)
+            return self._object_from_retreat_pb_pose
+        else:
+            return self._object_from_retreat_frame
 
     # --------------
-    # Cartesian path generation
+    # rescaling
     # --------------
-
-    def get_object_from_approach_to_attach_path(self, disc=10, as_pb_pose=False):
-        """Get linear interpolation between the approach and attach poses,
-        in object_from_x coordinate.
-
-        Parameters
-        ----------
-        disc : int, optional
-            number of interpolated path points, by default 10
-        as_pb_pose : bool, optional
-            output pybullet Pose or not, by default False
-        """
-        pass
-
-    def get_object_from_attach_to_retreat_path(self, disc=10, as_pb_pose=False):
-        """Get linear interpolation between the attach and retreat poses,
-        in object_from_x coordinate.
-
-        Parameters
-        ----------
-        disc : int, optional
-            number of interpolated path points, by default 10
-        as_pb_pose : bool, optional
-            output pybullet Pose or not, by default False
-        """
-        pass
 
     def rescale(self, scale):
         def scale_frame(fr, scale):

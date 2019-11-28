@@ -215,7 +215,7 @@ class Assembly(object):
 
     @property
     def element_geometries(self):
-        return {extract_element_vert_id(e_key) : unit_geo for e_key, unit_geo in self._element_geometries.items()}
+        return {e_key : element.unit_geometries for e_key, element in self.elements.items()}
 
     # --------------
     # layer info query
@@ -239,6 +239,7 @@ class Assembly(object):
     # --------------
     # static obstacle getter / setter
     # --------------
+    # TODO: static obstacles should be removed from this class, should be specified in an URDF
 
     @property
     def static_obstacle_geometries(self):
@@ -281,7 +282,11 @@ class Assembly(object):
             vj_data['virtual_joint'] = vj.to_data(mesh_path)
             data['virtual_joints'].append(vj_data)
 
-        data['static_obstacle_geometries'] = [so_ug.to_data(mesh_path) for so_ug in self.static_obstacle_geometries.values()]
+        # TODO: remove later
+        static_path = os.path.join(mesh_path, '..', '..', 'static_obstacles', 'collision')
+        if not os.path.isdir(static_path):
+            os.mkdir(static_path)
+        data['static_obstacle_geometries'] = [so_ug.to_data(static_path) for so_ug in self.static_obstacle_geometries.values()]
 
         with open(json_file_path, 'w') as outfile:
             json.dump(data, outfile, indent=json_indent)
@@ -296,7 +301,7 @@ class Assembly(object):
             os.mkdir(root_path)
 
         json_path = os.path.join(root_path, "json")
-        mesh_path = os.path.join(root_path, "meshes", "collision")
+        mesh_path = os.path.join(root_path, "meshes", 'assembly_elements', "collision")
         urdf_path = os.path.join(root_path, "urdf")
         check_paths = [json_path, mesh_path, urdf_path]
         for p in check_paths:
@@ -332,24 +337,24 @@ class Assembly(object):
         """debug function
         """
         print('#'*10)
-        for e in self.elements.values():
-            print('*'*6)
-            c_e_ids = set(self.get_element_neighbored_elements(e.key_id, index_only=index_only))
-            c_vj_ids = self.get_element_neighbored_virtual_joints(e.key_id, index_only=index_only)
-            print('grounded:{}'.format(e.is_grounded))
-            print('e#{0} neighbor e: {1}'.format(e.key_id, c_e_ids))
-            print('e#{0} neighbor vj: {1}'.format(e.key_id, c_vj_ids))
-            vj_e_ids = set()
-            for vj_id in c_vj_ids:
-                vj_e_ids.update(self.get_virtual_joint_neighbored_elements(vj_id, index_only=True))
-            print('vj ring neighbor e: {}'.format(vj_e_ids))
-            assert c_e_ids == vj_e_ids
+        # for e in self.elements.values():
+        #     print('*'*6)
+        #     c_e_ids = set(self.get_element_neighbored_elements(e.key_id, index_only=index_only))
+        #     c_vj_ids = self.get_element_neighbored_virtual_joints(e.key_id, index_only=index_only)
+        #     print('grounded:{}'.format(e.is_grounded))
+        #     print('e#{0} neighbor e: {1}'.format(e.key_id, c_e_ids))
+        #     print('e#{0} neighbor vj: {1}'.format(e.key_id, c_vj_ids))
+        #     vj_e_ids = set()
+        #     for vj_id in c_vj_ids:
+        #         vj_e_ids.update(self.get_virtual_joint_neighbored_elements(vj_id, index_only=True))
+        #     print('vj ring neighbor e: {}'.format(vj_e_ids))
+        #     assert c_e_ids == vj_e_ids
 
-        print('#'*10)
-        for vj in self.virtual_joints.values():
+        # print('#'*10)
+        # for vj in self.virtual_joints.values():
 
-            print('*'*6)
-            print('neighbor e of vj#{0}: {1}'.format(vj.key_id, self.get_virtual_joint_neighbored_elements(vj.key_id, index_only=index_only)))
+        #     print('*'*6)
+        #     print('neighbor e of vj#{0}: {1}'.format(vj.key_id, self.get_virtual_joint_neighbored_elements(vj.key_id, index_only=index_only)))
 
 if __name__ == "__main__":
     # Rhino example

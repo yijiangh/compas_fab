@@ -7,6 +7,19 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <https://keepachangelog.com/en/1.0.0/>`_
 and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0.html>`_.
 
+Unreleased
+----------
+
+**Added**
+
+* Added `Assembly`, `Element`, `Grasp`, `UnitGeometry` to `assembly.datastructures` to model discrete assembly (now only for picknplace applications)
+* Added `pose` (`compas.geometry` to `pybullet_planning.Pose` conversion) module to `backend.pybullet`
+* Added `robot` (util functions to obtain "current" TCP pose of a pybullet robot and attach end effector meshes) module to `backend.pybullet`
+* Added `body` (`compas Mesh` to `pybullet_planning.body` conversion) module to `backend.pybullet`
+
+**Changed**
+
+
 0.10.0
 ----------
 
