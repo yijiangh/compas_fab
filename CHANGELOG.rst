@@ -35,15 +35,11 @@ Unreleased
 
 * Changed ``inverse_kinematics``, ``plan_cartesian_motion`` and ``plan_motion`` to use the attached_tool's ``AttachedCollisionMesh`` if set
 
-**Removed**
-
 **Fixed**
 
 * Fixed mutable init parameters of ``Configuration``, ``JointTrajectoryPoint``, ``JointTrajectory`` and ``Robot.basic``.
 * Fixed interface of `RobotArtist` for Blender
 * Fixed DAE parsing of meshes with multiple triangle sets
-
-**Deprecated**
 
 0.9.0
 ----------
