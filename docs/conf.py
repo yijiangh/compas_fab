@@ -93,3 +93,5 @@ napoleon_use_ivar = False
 napoleon_use_param = False
 napoleon_use_rtype = False
 
+# for image number referencing
+numfig = True

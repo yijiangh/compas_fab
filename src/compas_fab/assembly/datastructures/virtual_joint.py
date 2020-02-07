@@ -14,6 +14,18 @@ __all__ = ['VirtualJoint']
 
 
 class VirtualJoint(object):
+    """todo
+
+    Parameters
+    ----------
+    object : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
 
     __module__ = 'compas_fab.assembly.datastructures'
 

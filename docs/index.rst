@@ -25,6 +25,7 @@ Contents
    backends
    examples
    reference
+   compasEP
    contributing
    authors
    changelog

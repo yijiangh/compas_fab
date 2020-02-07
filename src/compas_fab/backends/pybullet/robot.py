@@ -4,14 +4,17 @@
 
 import os
 
-from pybullet_planning import WorldSaver
-from pybullet_planning import is_connected, get_pose, set_pose, link_from_name, get_link_pose, has_link, \
-    multiply, create_attachment
+from compas.geometry import Frame
+from compas_fab.backends.pybullet.body import convert_mesh_to_pybullet_body
+from compas_fab.backends.pybullet import pb_pose_from_Transformation, Frame_from_pb_pose
+
+__all__ = ['attach_end_effector_geometry',
+           'get_TCP_pose']
 
 ##################################################
 
 def attach_end_effector_geometry(ee_meshes, robot, ee_link_name, scale=1.0):
-    """ create and attach a list of end effector meshes to the robot's ee_link.
+    """Create and attach a list of end effector meshes to the robot's ee_link.
 
     Note: for now, only collision mesh is supported, no virual mesh.
 
@@ -32,8 +35,7 @@ def attach_end_effector_geometry(ee_meshes, robot, ee_link_name, scale=1.0):
     list of pybullet bodies
         a list of pybullet object for the ee_meshes
     """
-    from compas.geometry import Frame
-    from compas_fab.backends.pybullet.body import convert_mesh_to_pybullet_body
+    from pybullet_planning import set_pose, link_from_name, get_link_pose, create_attachment
 
     pyb_ee_link = link_from_name(robot, ee_link_name)
     ee_link_pose = get_link_pose(robot, pyb_ee_link)
@@ -47,7 +49,7 @@ def attach_end_effector_geometry(ee_meshes, robot, ee_link_name, scale=1.0):
 
 
 def get_TCP_pose(robot, ee_link_name, ee_link_from_TCP_tf=None, return_pb_pose=False):
-    """ get current TCP pose in pybullet, based on its current configuration state
+    """Get current TCP pose in pybullet, based on its current configuration state
 
     Parameters
     ----------
@@ -64,7 +66,7 @@ def get_TCP_pose(robot, ee_link_name, ee_link_from_TCP_tf=None, return_pb_pose=F
     TCP_frame : compas Frame or (point, quat)
         in the world coordinate
     """
-    from compas_fab.backends.pybullet import pb_pose_from_Transformation, Frame_from_pb_pose
+    from pybullet_planning import link_from_name, get_link_pose, multiply
 
     pyb_ee_link = link_from_name(robot, ee_link_name)
     world_from_ee_link = get_link_pose(robot, pyb_ee_link)

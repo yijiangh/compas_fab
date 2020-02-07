@@ -13,6 +13,7 @@ environments.
     :maxdepth: 3
 
     compas_fab.artists
+    compas_fab.assembly
     compas_fab.backends
     compas_fab.robots
     compas_fab.utilities

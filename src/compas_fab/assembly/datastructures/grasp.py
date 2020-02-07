@@ -3,6 +3,18 @@ from compas.geometry import distance_point_point
 
 
 class Grasp(object):
+    """Modeling grasp information for picknplace application
+
+    Parameters
+    ----------
+    object : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
     def __init__(self, object_index=None, grasp_id=None, approach=None, attach=None, retreat=None):
         self._object_index = object_index # brick index
         self._grasp_id = grasp_id # grasp id

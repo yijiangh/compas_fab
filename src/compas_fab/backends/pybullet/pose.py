@@ -1,12 +1,12 @@
-"""util functions for converting pybullet pose to compas Frame/Transformation
-"""
-
 from compas.geometry import Frame, Transformation
-from pybullet_planning import Pose
-from pybullet_planning import quat_from_euler, quat_from_matrix, euler_from_quat
+
+__all__ = ['pb_pose_from_Frame',
+           'pb_pose_from_Transformation',
+           'Frame_from_pb_pose',
+           'Frame_from_pos_rot']
 
 def pb_pose_from_Frame(frame):
-    """ convert compas.Frame to (point, quat).
+    """Convert compas.Frame to (point, quat).
 
     Parameters
     ----------
@@ -19,13 +19,14 @@ def pb_pose_from_Frame(frame):
         where point: [x, y, z]
               quat:  [roll, pitch, yaw]
     """
+    from pybullet_planning import quat_from_euler
     point = [frame.point.x, frame.point.y, frame.point.z]
     euler = frame.euler_angles()
     return (point, quat_from_euler(euler))
 
 
 def pb_pose_from_Transformation(tf):
-    """ convert compas.Transformation to (point, quat).
+    """Convert compas.Transformation to (point, quat).
 
     Parameters
     ----------
@@ -38,13 +39,14 @@ def pb_pose_from_Transformation(tf):
         where point: [x, y, z]
               quat:  [roll, pitch, yaw]
     """
+    from pybullet_planning import quat_from_matrix
     point = [tf[i, 3] for i in range(3)]
     quat = quat_from_matrix([tf[i, :3] for i in range(3)])
     return (point, quat)
 
 
 def Frame_from_pb_pose(pose):
-    """ convert (point, quat) to compas.Frame
+    """Convert (point, quat) to compas.Frame
 
     Parameters
     ----------
@@ -54,11 +56,12 @@ def Frame_from_pb_pose(pose):
     -------
     frame : compas Frame
     """
+    from pybullet_planning import euler_from_quat
     frame = Frame.from_euler_angles(euler_from_quat(pose[1]), point=pose[0])
     return frame
 
 def Frame_from_pos_rot(pos, rot):
-    """ convert (point, rotation matrix) to compas.Frame
+    """Convert (point, rotation matrix) to compas.Frame
 
     Parameters
     ----------
@@ -71,4 +74,5 @@ def Frame_from_pos_rot(pos, rot):
     -------
     frame : compas Frame
     """
+    from pybullet_planning import quat_from_matrix
     return Frame.from_euler_angles(quat_from_matrix(rot), point=pos)

@@ -1,7 +1,3 @@
-"""An abstract geometry object that can be made as parametric geometry class
-or a determinate mesh object
-
-"""
 import os
 import random
 import warnings
@@ -15,8 +11,17 @@ __all__ = ['UnitGeometry']
 
 
 class UnitGeometry(object):
-    """Unit geometry ...
+    """container class for a discrete object's mesh, initial/goal poses, and grasp information
 
+    Parameters
+    ----------
+    object : [type]
+        [description]
+
+    Returns
+    -------
+    [type]
+        [description]
     """
     def __init__(self, name='', meshes=None, bodies=None,
                  initial_frames=None, goal_frames=None,
@@ -33,6 +38,7 @@ class UnitGeometry(object):
         self._goal_pb_poses = []
         self._pick_grasps = pick_grasps or []
         self._place_grasps = place_grasps or []
+        # supports are for specifying "allowed collisions" during grasping operation, not in use now
         self._initial_supports = initial_supports or []
         self._goal_supports = goal_supports or []
 
@@ -40,22 +46,42 @@ class UnitGeometry(object):
     def name(self):
         return self._name
 
-    # --------------------------------------------------------------------------
+    # ----------------------------------------
     # geometry frame properties
-    # --------------------------------------------------------------------------
+    # ----------------------------------------
 
     @property
     def parent_frame(self):
+        """world_from_parent frame, all the other frame attributes are relative to this parent frame.
+
+        Returns
+        -------
+        compas Frame
+            [description]
+        """
         return self._parent_frame
 
     @property
     def initial_frame(self):
-        """randomly chose one initial pose
+        """Randomly choose one initial frame.
+
+        Returns
+        -------
+        compas Frame
+            [description]
         """
         return random.choice(self.initial_frames)
 
     @property
     def initial_frames(self):
+        """world_from_pick_poses
+        In a picknplace application, initial frame refers to the geometry's pose before its being picked up (usually pose on the material rack).
+
+        Returns
+        -------
+        list of compas Frame
+            [description]
+        """
         return self._initial_frames
 
     @initial_frames.setter
@@ -64,6 +90,18 @@ class UnitGeometry(object):
         self._initial_frames = frames_
 
     def get_initial_frames(self, get_pb_pose=False):
+        """[summary]
+
+        Parameters
+        ----------
+        get_pb_pose : bool, optional
+            if True, all frames will be converted to pybullet_planning poses, by default False
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
         if not get_pb_pose:
             return self.initial_frames
         else:
@@ -74,13 +112,17 @@ class UnitGeometry(object):
 
     @property
     def goal_frame(self):
-        """randomly chose one goal pose
-        """
         return random.choice(self.goal_frames)
 
     @property
     def goal_frames(self):
-        """world_from_element_place pose
+        """world_from_placed_poses
+        In a picknplace context, this refers to the poses when the geometry is placed in the target design configuration.
+
+        Returns
+        -------
+        [type]
+            [description]
         """
         return self._goal_frames
 
@@ -98,12 +140,19 @@ class UnitGeometry(object):
                 self._goal_pb_poses = [pb_pose_from_Frame(fr) for fr in self.goal_frames]
             return self._goal_pb_poses
 
-    # --------------------------------------------------------------------------
+    # ----------------------------------------
     # geometry mesh/body properties
-    # --------------------------------------------------------------------------
+    # ----------------------------------------
 
     @property
     def meshes(self):
+        """[summary]
+
+        Returns
+        -------
+        list of compas Mesh
+            [description]
+        """
         if not self._meshes:
             warnings.warn('no mesh is specified in the unit_geometry.')
         return self._meshes
@@ -115,6 +164,13 @@ class UnitGeometry(object):
 
     @property
     def pybullet_bodies(self):
+        """convert meshes to pybullet bodies
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
         if not self._bodies:
             # warnings.warn('no pybullet bodies is specified in the unit_geometry, generating from meshes')
             from compas_fab.backends.pybullet import convert_mesh_to_pybullet_body
@@ -136,19 +192,18 @@ class UnitGeometry(object):
     #     assert isinstance(bodies_, list)
     #     self._bodies = bodies_
 
-    # --------------------------------------------------------------------------
+    # ----------------------------------------
     # Grasp properties
-    # --------------------------------------------------------------------------
-
-    # For now, this unit geometry class is binded to grasp operation
-    # these attributes are specific to picknplace applications
-    # we should plan to replace it with a more abstract class that
-    # represents geometry's relationship with end effector
-    # can be a class called `CartesianOperation`, and Grasp, Extrusion can inherit from it
+    # ----------------------------------------
 
     @property
     def pick_grasps(self):
-        """obj_from_grasp_poses
+        """A list of Grasps for the picking operation.
+
+        Returns
+        -------
+        list of .Grasp
+            [description]
         """
         return self._pick_grasps
 
@@ -158,7 +213,12 @@ class UnitGeometry(object):
 
     @property
     def place_grasps(self):
-        """obj_from_grasp_poses
+        """[summary]
+
+        Returns
+        -------
+        list of .Grasp
+            [description]
         """
         return self._place_grasps
 
@@ -171,6 +231,18 @@ class UnitGeometry(object):
     # --------------------------------------------------------------------------
 
     def rescale(self, scale):
+        """rescale all the frames and meshes according to a scale conversion rate.
+
+        Parameters
+        ----------
+        scale : float
+            unit conversion rate, e.g. 1.0, 1e-3.
+
+        Returns
+        -------
+        No return
+            [description]
+        """
         def scale_mesh(m, scale):
             for key, v in m.vertex.items():
                 for k in v.keys():

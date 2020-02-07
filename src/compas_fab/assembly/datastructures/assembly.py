@@ -22,14 +22,17 @@ WORLD_FRAME = Frame.worldXY()
 
 class Assembly(object):
     """A data structure for discrete element assemblies.
+
     The users only work with integer indices,
     all the keys are kept internally.
     id means int index.
     key means str.
+
     An assembly is composed of:
         - a collection of discrete element geometries
         - a collection of physical joint geometries (optional)
         - a network modeling connectivity and interface info between elements and joints
+
     There are two types of vertices in this network:
         - element_vert
             represents unit assembly element
@@ -66,10 +69,12 @@ class Assembly(object):
 
     def add_element(self, element_instance):
         """[summary]
+
         Parameters
         ----------
         element_instance : compas.assembly.datastructures.Element
             [description]
+
         """
         # unit geometry's object frame transformed to origin
         self._net.add_vertex(key=element_instance.key, element=element_instance, tag='element')
@@ -94,10 +99,12 @@ class Assembly(object):
     @property
     def elements(self):
         """User should use int-indexed dict
+
         Parameters
         ----------
         key_indexed : bool, optional
             [description], by default False
+
         Returns
         -------
         [type]
@@ -112,6 +119,7 @@ class Assembly(object):
     def add_virtual_joint(self, vj_instance):
         """
         Network edges are added here.
+
         Parameters
         ----------
         vj_instance : compas.assembly.datastructures.VirtualJoint
